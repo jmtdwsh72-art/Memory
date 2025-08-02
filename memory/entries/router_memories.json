@@ -1,0 +1,160 @@
+[
+  {
+    "id": "memory_1754091465213_wyfv31u0i",
+    "agentId": "router",
+    "type": "summary",
+    "input": "Research the latest developments in AI memory systems",
+    "summary": "Research Analysis for: \"Research the latest developments in AI memory systems\"",
+    "context": "Routed to: research",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-01T23:37:45.213Z",
+    "createdAt": "2025-08-01T23:37:45.213Z",
+    "tags": [
+      "research",
+      "latest",
+      "developments",
+      "memory",
+      "systems"
+    ]
+  },
+  {
+    "id": "memory_1754091572808_k1o2sncnu",
+    "agentId": "router",
+    "userId": "26019e03-1adb-43e2-84a8-f0404e0f5d4f",
+    "type": "summary",
+    "input": "What are the latest trends in machine learning for 2024?",
+    "summary": "Just tell me what you need help with, and I'll get you to the right specialist! Your request: \"What are the latest trends in machine learning for 2024?\"",
+    "context": "Routed to: router",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-01T23:39:32.808Z",
+    "createdAt": "2025-08-01T23:39:32.808Z",
+    "tags": [
+      "2024",
+      "what",
+      "latest",
+      "trends",
+      "machine"
+    ]
+  },
+  {
+    "id": "memory_1754091983724_n4t2e6zet",
+    "agentId": "router",
+    "userId": "6bd7569f-6cba-47df-aa0f-cf6a189f2dde",
+    "type": "summary",
+    "input": "Tell me about quantum computing advances in 2024",
+    "summary": "Just tell me what you need help with, and I'll get you to the right specialist! Your request: \"Tell me about quantum computing advances in 2024\"",
+    "context": "Routed to: router",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-01T23:46:23.724Z",
+    "createdAt": "2025-08-01T23:46:23.724Z",
+    "tags": [
+      "2024",
+      "tell",
+      "about",
+      "quantum",
+      "computing"
+    ]
+  },
+  {
+    "id": "memory_1754092090533_4l7wia0mk",
+    "agentId": "router",
+    "userId": "d20be30f-8e02-4dcc-ae42-f7493129021c",
+    "type": "summary",
+    "input": "Help me create a script to automate my daily tasks",
+    "summary": "I'd recommend creating a script that handles help and create and script and automate efficiently.",
+    "context": "Routed to: automation",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-01T23:48:10.533Z",
+    "createdAt": "2025-08-01T23:48:10.533Z",
+    "tags": [
+      "automate",
+      "help",
+      "create",
+      "script",
+      "daily"
+    ]
+  },
+  {
+    "id": "memory_1754093261377_t3gmlekih",
+    "agentId": "router",
+    "type": "summary",
+    "input": "Research the latest developments in AI memory systems",
+    "summary": "Research Analysis for: \"Research the latest developments in AI memory systems\"",
+    "context": "Routed to: research",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-02T00:07:41.377Z",
+    "createdAt": "2025-08-02T00:07:41.377Z",
+    "tags": [
+      "research",
+      "latest",
+      "developments",
+      "memory",
+      "systems"
+    ]
+  },
+  {
+    "id": "memory_1754093287240_3cwfjr95a",
+    "agentId": "router",
+    "userId": "test-user",
+    "type": "summary",
+    "input": "Hello, I need help with something",
+    "summary": "Just tell me what you need help with, and I'll get you to the right specialist! Your request: \"Hello, I need help with something\"",
+    "context": "Routed to: router",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-02T00:08:07.240Z",
+    "createdAt": "2025-08-02T00:08:07.240Z",
+    "tags": [
+      "research",
+      "hello",
+      "need",
+      "help",
+      "something"
+    ]
+  },
+  {
+    "id": "memory_1754093287543_a3wmvxdfc",
+    "agentId": "router",
+    "userId": "test-user",
+    "type": "summary",
+    "input": "analyze the latest AI developments",
+    "summary": "Research Analysis for: \"analyze the latest AI developments\"",
+    "context": "Routed to: research",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-02T00:08:07.543Z",
+    "createdAt": "2025-08-02T00:08:07.543Z",
+    "tags": [
+      "research",
+      "analyze",
+      "latest",
+      "developments",
+      "analysis"
+    ]
+  },
+  {
+    "id": "memory_1754093287666_tonn88j3e",
+    "agentId": "router",
+    "userId": "test-user",
+    "type": "summary",
+    "input": "write a script for me",
+    "summary": "I'd recommend creating a script that handles write and script efficiently.",
+    "context": "Routed to: automation",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-02T00:08:07.666Z",
+    "createdAt": "2025-08-02T00:08:07.666Z",
+    "tags": [
+      "script",
+      "write",
+      "perfect",
+      "let",
+      "automate"
+    ]
+  }
+]

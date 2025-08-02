@@ -1,0 +1,62 @@
+[
+  {
+    "id": "memory_1754092090490_8ypadh6ug",
+    "agentId": "automation",
+    "userId": "d20be30f-8e02-4dcc-ae42-f7493129021c",
+    "type": "summary",
+    "input": "Help me create a script to automate my daily tasks",
+    "summary": "I'd recommend creating a script that handles help and create and script and automate efficiently.",
+    "context": "Task type: scripting",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-01T23:48:10.490Z",
+    "createdAt": "2025-08-01T23:48:10.490Z",
+    "tags": [
+      "automate",
+      "help",
+      "create",
+      "script",
+      "daily"
+    ]
+  },
+  {
+    "id": "memory_1754093287393_ltnstkud8",
+    "agentId": "automation",
+    "userId": "test-user",
+    "type": "summary",
+    "input": "Create a script to automate file processing",
+    "summary": "I'd recommend creating a script that handles create and script and automate and file efficiently.",
+    "context": "Task type: scripting",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-02T00:08:07.393Z",
+    "createdAt": "2025-08-02T00:08:07.393Z",
+    "tags": [
+      "automate",
+      "create",
+      "script",
+      "file",
+      "processing"
+    ]
+  },
+  {
+    "id": "memory_1754093287644_5vb1w3y6a",
+    "agentId": "automation",
+    "userId": "test-user",
+    "type": "summary",
+    "input": "write a script for me",
+    "summary": "I'd recommend creating a script that handles write and script efficiently.",
+    "context": "Task type: scripting",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-02T00:08:07.644Z",
+    "createdAt": "2025-08-02T00:08:07.644Z",
+    "tags": [
+      "script",
+      "write",
+      "perfect",
+      "let",
+      "automate"
+    ]
+  }
+]

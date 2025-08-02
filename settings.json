@@ -1,0 +1,52 @@
+{
+  "memory": {
+    "maxLogEntries": 1000,
+    "maxSummaryEntries": 100,
+    "cleanupIntervalMs": 86400000,
+    "defaultRelevanceThreshold": 0.7
+  },
+  "agents": {
+    "router": {
+      "enabled": true,
+      "timeout": 30000
+    },
+    "research": {
+      "enabled": true,
+      "timeout": 60000,
+      "maxConcurrentQueries": 3
+    }
+  },
+  "database": {
+    "connectionPoolSize": 10,
+    "queryTimeout": 15000,
+    "retryAttempts": 3
+  },
+  "security": {
+    "enableRLS": false,
+    "maxRequestsPerMinute": 100,
+    "secretsPattern": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "CLAUDE_API_KEY",
+      "sk-[A-Za-z0-9]{32,}",
+      "xoxb-[A-Za-z0-9-]+"
+    ]
+  },
+  "hooks": {
+    "preCommit": ["./hooks/bam.sh", "./hooks/make_sure.sh"],
+    "postDeploy": ["./hooks/context_warning.sh"],
+    "development": {
+      "autoFormat": true,
+      "securityScan": true,
+      "memoryWarning": true
+    }
+  },
+  "logging": {
+    "level": "info",
+    "enableFileLogging": true,
+    "enableSupabaseLogging": true,
+    "logRotation": {
+      "maxFiles": 10,
+      "maxSize": "10mb"
+    }
+  }
+}

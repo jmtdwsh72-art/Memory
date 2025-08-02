@@ -1,0 +1,80 @@
+[
+  {
+    "id": "memory_1754091465169_5halvysdu",
+    "agentId": "research",
+    "type": "summary",
+    "input": "Research the latest developments in AI memory systems",
+    "summary": "Research Analysis for: \"Research the latest developments in AI memory systems\"",
+    "context": "Research analysis",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-01T23:37:45.169Z",
+    "createdAt": "2025-08-01T23:37:45.169Z",
+    "tags": [
+      "research",
+      "latest",
+      "developments",
+      "memory",
+      "systems"
+    ]
+  },
+  {
+    "id": "memory_1754093261307_omczrjz54",
+    "agentId": "research",
+    "type": "summary",
+    "input": "Research the latest developments in AI memory systems",
+    "summary": "Research Analysis for: \"Research the latest developments in AI memory systems\"",
+    "context": "Research analysis",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-02T00:07:41.307Z",
+    "createdAt": "2025-08-02T00:07:41.307Z",
+    "tags": [
+      "research",
+      "latest",
+      "developments",
+      "memory",
+      "systems"
+    ]
+  },
+  {
+    "id": "memory_1754093287310_7j4gl7w20",
+    "agentId": "research",
+    "userId": "test-user",
+    "type": "summary",
+    "input": "Research machine learning trends",
+    "summary": "Research Analysis for: \"Research machine learning trends\"",
+    "context": "Research analysis",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-02T00:08:07.310Z",
+    "createdAt": "2025-08-02T00:08:07.310Z",
+    "tags": [
+      "research",
+      "machine",
+      "learning",
+      "trends",
+      "analysis"
+    ]
+  },
+  {
+    "id": "memory_1754093287467_ebq4usp4t",
+    "agentId": "research",
+    "userId": "test-user",
+    "type": "summary",
+    "input": "analyze the latest AI developments",
+    "summary": "Research Analysis for: \"analyze the latest AI developments\"",
+    "context": "Research analysis",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-02T00:08:07.467Z",
+    "createdAt": "2025-08-02T00:08:07.467Z",
+    "tags": [
+      "research",
+      "analyze",
+      "latest",
+      "developments",
+      "analysis"
+    ]
+  }
+]
