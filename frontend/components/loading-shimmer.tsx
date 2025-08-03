@@ -1,5 +1,6 @@
 'use client';
 
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface ShimmerProps {
@@ -9,27 +10,62 @@ interface ShimmerProps {
 
 export function Shimmer({ className, children }: ShimmerProps) {
   return (
-    <div className={cn('shimmer rounded-md bg-muted', className)}>
+    <motion.div 
+      className={cn('relative overflow-hidden rounded-md bg-muted/60', className)}
+      animate={{
+        background: [
+          'hsl(var(--muted) / 0.6)',
+          'hsl(var(--muted) / 0.8)',
+          'hsl(var(--muted) / 0.6)'
+        ]
+      }}
+      transition={{
+        duration: 1.5,
+        repeat: Infinity,
+        ease: "easeInOut"
+      }}
+    >
+      <motion.div
+        className="absolute inset-0 bg-gradient-to-r from-transparent via-background/20 to-transparent"
+        animate={{
+          x: ['-100%', '100%']
+        }}
+        transition={{
+          duration: 1.5,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }}
+      />
       {children}
-    </div>
+    </motion.div>
   );
 }
 
 export function MessageShimmer() {
   return (
-    <div className="flex gap-3 px-4 py-4">
+    <motion.div 
+      className="flex gap-3 px-4 py-4"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <Shimmer className="h-8 w-8 rounded-full" />
       <div className="flex-1 space-y-2">
         <div className="flex items-center gap-2">
           <Shimmer className="h-3 w-16" />
           <Shimmer className="h-3 w-12" />
         </div>
-        <div className="space-y-2">
+        <motion.div 
+          className="space-y-2"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
           <Shimmer className="h-4 w-3/4" />
           <Shimmer className="h-4 w-1/2" />
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -37,7 +73,13 @@ export function SidebarShimmer() {
   return (
     <div className="space-y-1 p-2">
       {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="flex items-start gap-3 rounded-lg p-3">
+        <motion.div 
+          key={i} 
+          className="flex items-start gap-3 rounded-lg p-3"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: i * 0.1, duration: 0.3 }}
+        >
           <Shimmer className="h-10 w-10 rounded-lg" />
           <div className="flex-1 space-y-2">
             <Shimmer className="h-4 w-24" />
@@ -47,7 +89,7 @@ export function SidebarShimmer() {
               <Shimmer className="h-3 w-8" />
             </div>
           </div>
-        </div>
+        </motion.div>
       ))}
     </div>
   );

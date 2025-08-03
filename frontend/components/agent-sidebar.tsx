@@ -3,16 +3,12 @@
 import * as React from 'react';
 import { motion } from 'framer-motion';
 import { 
-  Search, 
-  MessageCircle, 
-  BarChart3, 
   Brain,
   ChevronRight,
   Circle,
   CheckCircle,
-  Zap,
-  Bot
-} from 'lucide-react';
+} from '@/lib/icons';
+import { iconComponents, getIconComponent } from '@/lib/icons';
 import { cn } from '@/lib/utils';
 
 interface Agent {
@@ -31,18 +27,9 @@ interface AgentSidebarProps {
   className?: string;
 }
 
-// Icon mapping for dynamic icons
-const iconComponents = {
-  Search,
-  MessageCircle,
-  BarChart3,
-  Zap,
-  Bot,
-} as const;
-
-function getIconComponent(iconName: string): React.ReactNode {
-  const IconComponent = iconComponents[iconName as keyof typeof iconComponents];
-  return IconComponent ? <IconComponent className="h-5 w-5" /> : <Bot className="h-5 w-5" />;
+function getIconComponentElement(iconName: string): React.ReactNode {
+  const IconComponent = getIconComponent(iconName);
+  return <IconComponent className="h-5 w-5" />;
 }
 
 function StatusIndicator({ status }: { status: Agent['status'] }) {
@@ -55,10 +42,20 @@ function StatusIndicator({ status }: { status: Agent['status'] }) {
   const { color, icon: Icon } = statusConfig[status];
 
   return (
-    <div className={cn('flex items-center gap-1', color)}>
-      <Icon className="h-3 w-3" />
-      <span className="text-xs capitalize">{status}</span>
-    </div>
+    <motion.div 
+      className={cn('flex items-center gap-1', color)}
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: 0.2 }}
+    >
+      <motion.div
+        animate={status === 'active' ? { scale: [1, 1.2, 1] } : {}}
+        transition={{ duration: 2, repeat: Infinity }}
+      >
+        <Icon className="h-3 w-3" />
+      </motion.div>
+      <span className="text-xs capitalize font-medium">{status}</span>
+    </motion.div>
   );
 }
 
@@ -72,14 +69,16 @@ export function AgentSidebar({ activeAgent, onAgentSelect, className }: AgentSid
         const response = await fetch('/api/agents');
         const data = await response.json();
         
-        const agentList = data.agents.map((agent: any) => ({
-          id: agent.id,
-          name: agent.name,
-          description: agent.description,
-          icon: getIconComponent(agent.icon),
-          status: agent.status,
-          color: agent.color
-        }));
+        const agentList = data.agents
+          .filter((agent: any) => agent.id !== 'welcome') // Exclude Welcome Agent from sidebar
+          .map((agent: any) => ({
+            id: agent.id,
+            name: agent.name,
+            description: agent.description,
+            icon: getIconComponentElement(agent.icon),
+            status: agent.status,
+            color: agent.color
+          }));
         
         setAgents(agentList);
       } catch (error) {
@@ -90,21 +89,21 @@ export function AgentSidebar({ activeAgent, onAgentSelect, className }: AgentSid
             id: 'router',
             name: 'General Chat',
             description: 'General conversation and task routing',
-            icon: getIconComponent('MessageCircle'),
+            icon: getIconComponentElement('MessageCircle'),
             status: 'active',
           },
           {
             id: 'research',
             name: 'Research Agent',
             description: 'Deep research and analysis tasks',
-            icon: getIconComponent('Search'),
+            icon: getIconComponentElement('Search'),
             status: 'active',
           },
           {
             id: 'automation',
             name: 'Automation Agent',
             description: 'Prompt writing, scripting, and idea generation',
-            icon: getIconComponent('Zap'),
+            icon: getIconComponentElement('Zap'),
             status: 'active',
           },
         ]);
@@ -149,12 +148,14 @@ export function AgentSidebar({ activeAgent, onAgentSelect, className }: AgentSid
   }
 
   return (
-    <div
+    <aside
       className={cn(
         'flex h-full w-80 flex-col border-r border-border bg-card',
         'md:w-64 lg:w-80',
         className
       )}
+      role="navigation"
+      aria-label="Agent selection sidebar"
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border p-4">
@@ -176,15 +177,32 @@ export function AgentSidebar({ activeAgent, onAgentSelect, className }: AgentSid
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.1 }}
+              whileHover={{ 
+                scale: 1.02,
+                transition: { duration: 0.2 }
+              }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => onAgentSelect(agent.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onAgentSelect(agent.id);
+                }
+              }}
               className={cn(
                 'group relative flex w-full items-start gap-3 rounded-lg p-3 text-left',
-                'transition-all duration-200 hover:bg-accent/50',
+                'transition-all duration-300 ease-out',
+                'hover:bg-accent/50 hover:shadow-md hover:border-primary/10',
                 'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
+                'transform-gpu will-change-transform',
                 activeAgent === agent.id
-                  ? 'bg-primary/10 ring-1 ring-primary/20 shadow-sm'
-                  : 'hover:shadow-sm'
+                  ? 'bg-primary/10 ring-1 ring-primary/20 shadow-md border border-primary/20'
+                  : 'hover:shadow-sm border border-transparent'
               )}
+              aria-pressed={activeAgent === agent.id}
+              aria-label={`Select ${agent.name} agent. ${agent.description}. Status: ${agent.status}`}
+              role="button"
+              tabIndex={0}
             >
               {/* Active indicator */}
               {activeAgent === agent.id && (
@@ -196,17 +214,23 @@ export function AgentSidebar({ activeAgent, onAgentSelect, className }: AgentSid
               )}
 
               {/* Icon */}
-              <div
+              <motion.div
                 className={cn(
                   'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
-                  'border transition-colors',
+                  'border transition-all duration-300 ease-out',
+                  'group-hover:shadow-sm',
                   activeAgent === agent.id
-                    ? 'border-primary/20 bg-primary/10 text-primary'
+                    ? 'border-primary/30 bg-primary/15 text-primary shadow-sm'
                     : 'border-border bg-background text-muted-foreground group-hover:border-primary/20 group-hover:bg-primary/5 group-hover:text-primary'
                 )}
+                whileHover={activeAgent !== agent.id ? { 
+                  scale: 1.05,
+                  rotate: 2
+                } : {}}
+                transition={{ duration: 0.2 }}
               >
                 {agent.icon}
-              </div>
+              </motion.div>
 
               {/* Content */}
               <div className="min-w-0 flex-1">
@@ -221,14 +245,21 @@ export function AgentSidebar({ activeAgent, onAgentSelect, className }: AgentSid
                   >
                     {agent.name}
                   </h3>
-                  <ChevronRight
-                    className={cn(
-                      'h-4 w-4 transition-all duration-200',
-                      activeAgent === agent.id
-                        ? 'rotate-90 text-primary'
-                        : 'text-muted-foreground group-hover:text-primary'
-                    )}
-                  />
+                  <motion.div
+                    animate={{
+                      rotate: activeAgent === agent.id ? 90 : 0
+                    }}
+                    transition={{ duration: 0.3, ease: "easeOut" }}
+                  >
+                    <ChevronRight
+                      className={cn(
+                        'h-4 w-4 transition-colors duration-200',
+                        activeAgent === agent.id
+                          ? 'text-primary'
+                          : 'text-muted-foreground group-hover:text-primary'
+                      )}
+                    />
+                  </motion.div>
                 </div>
                 
                 <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
@@ -261,6 +292,6 @@ export function AgentSidebar({ activeAgent, onAgentSelect, className }: AgentSid
           </div>
         </div>
       </div>
-    </div>
+    </aside>
   );
 }

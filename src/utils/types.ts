@@ -10,6 +10,7 @@ export interface AgentConfig {
   icon: string;
   color: string;
   status: 'active' | 'inactive' | 'busy';
+  voiceId?: string; // Optional ElevenLabs voice ID
 }
 
 export interface AgentConfigExport {

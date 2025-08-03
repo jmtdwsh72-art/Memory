@@ -5,6 +5,7 @@ import { AgentRequest, ApiError } from '../utils/api-types';
 import { getAllAgents, getActiveAgents } from '../config/agent-config';
 import { memoryEngine } from '../utils/memory-engine';
 import { MemoryManager } from '../utils/memory-manager';
+import { logAPIError, logMemoryError } from '../utils/error-logger';
 
 const router = Router();
 const apiHandler = ApiHandler.getInstance();
@@ -94,13 +95,24 @@ router.post('/agent/:agentId',
       return;
 
     } catch (error) {
+      const errorObj = error instanceof Error ? error : new Error('Agent request failed');
+      
+      // Log API error with request context
+      await logAPIError(errorObj, {
+        agentId: req.params.agentId,
+        input: req.body.input,
+        sessionId: req.body.sessionId,
+        userAgent: req.get('User-Agent'),
+        url: req.originalUrl
+      });
+      
       console.error('Agent request error:', error);
       
       const apiError: ApiError = {
         error: 'Internal server error',
         code: 'INTERNAL_ERROR',
         timestamp: new Date().toISOString(),
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: errorObj.message
       };
       
       res.status(500).json(apiError);
@@ -135,13 +147,23 @@ router.get('/agent/:agentId/status',
       return;
 
     } catch (error) {
+      const errorObj = error instanceof Error ? error : new Error('Agent status check failed');
+      
+      // Log API error for status check
+      await logAPIError(errorObj, {
+        agentId: req.params.agentId,
+        operation: 'status_check',
+        userAgent: req.get('User-Agent'),
+        url: req.originalUrl
+      });
+      
       console.error('Agent status error:', error);
       
       const apiError: ApiError = {
         error: 'Failed to get agent status',
         code: 'STATUS_ERROR',
         timestamp: new Date().toISOString(),
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: errorObj.message
       };
       
       res.status(500).json(apiError);
@@ -173,6 +195,15 @@ router.get('/agents', async (req: Request, res: Response) => {
     });
 
   } catch (error) {
+    const errorObj = error instanceof Error ? error : new Error('Agents list retrieval failed');
+    
+    // Log API error for agents list
+    await logAPIError(errorObj, {
+      operation: 'agents_list',
+      userAgent: req.get('User-Agent'),
+      url: req.originalUrl
+    });
+    
     console.error('Agents list error:', error);
     
     const apiError: ApiError = {
@@ -267,13 +298,24 @@ router.get('/memory/:agentId',
       return;
 
     } catch (error) {
+      const errorObj = error instanceof Error ? error : new Error('Memory retrieval failed');
+      
+      // Log memory error
+      await logMemoryError(errorObj, {
+        agentId: req.params.agentId,
+        userId: req.query.userId as string,
+        operation: 'memory_retrieval',
+        userAgent: req.get('User-Agent'),
+        url: req.originalUrl
+      });
+      
       console.error('Memory retrieval error:', error);
       
       const apiError: ApiError = {
         error: 'Failed to retrieve memory',
         code: 'MEMORY_RETRIEVAL_ERROR',
         timestamp: new Date().toISOString(),
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: errorObj.message
       };
       
       res.status(500).json(apiError);

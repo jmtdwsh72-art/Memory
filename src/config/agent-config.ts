@@ -2,6 +2,8 @@ import { AgentConfig, AgentConfigExport } from '../utils/types';
 import { routerAgentExport } from '../agents/agent-router.config';
 import { researchAgentExport } from '../agents/agent-research.config';
 import { automationAgentExport } from '../agents/agent-automation.config';
+import { creativeAgentExport } from '../agents/agent-creative.config';
+import { welcomeAgentExport } from '../agents/agent-welcome.config';
 
 export class AgentConfigRegistry {
   private static instance: AgentConfigRegistry;
@@ -24,6 +26,8 @@ export class AgentConfigRegistry {
     this.agentConfigs.set('router', routerAgentExport);
     this.agentConfigs.set('research', researchAgentExport);
     this.agentConfigs.set('automation', automationAgentExport);
+    this.agentConfigs.set('creative', creativeAgentExport);
+    this.agentConfigs.set('welcome', welcomeAgentExport);
   }
 
   public getAllAgentConfigs(): AgentConfig[] {

@@ -3,6 +3,7 @@ import { MemoryManager } from './memory-manager';
 import { AgentRequest, AgentResponse, MemoryContext, ValidationError } from './api-types';
 import { validateAgentId, getAllAgents } from '../config/agent-config';
 import { v4 as uuidv4 } from 'uuid';
+import { logAPIError, logMemoryError } from './error-logger';
 
 export class ApiHandler {
   private router: RouterAgent;
@@ -27,6 +28,7 @@ export class ApiHandler {
     includeMemory: boolean = false
   ): Promise<AgentResponse> {
     const sessionId = request.sessionId || uuidv4();
+    const requestId = `api_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     try {
       let memoryContext: MemoryContext | null = null;
@@ -51,7 +53,18 @@ export class ApiHandler {
         sessionId
       };
     } catch (error) {
-      throw new Error(`Agent processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorObj = error instanceof Error ? error : new Error('Agent processing failed');
+      
+      // Log API error with context
+      await logAPIError(errorObj, {
+        agentId,
+        input: request.input,
+        sessionId,
+        requestId,
+        includeMemory: includeMemory.toString()
+      });
+      
+      throw new Error(`Agent processing failed: ${errorObj.message}`);
     }
   }
 
@@ -69,6 +82,15 @@ export class ApiHandler {
         totalEntries: memoryEntries.length
       };
     } catch (error) {
+      const errorObj = error instanceof Error ? error : new Error('Memory retrieval failed');
+      
+      // Log memory error
+      await logMemoryError(errorObj, {
+        agentId,
+        query,
+        operation: 'memory_context_retrieval'
+      });
+      
       console.error('Failed to retrieve memory context:', error);
       return {
         entries: [],
@@ -184,6 +206,14 @@ export class ApiHandler {
         lastActivity: recentLogs.length > 0 ? recentLogs[0].timestamp.toISOString() : undefined
       };
     } catch (error) {
+      const errorObj = error instanceof Error ? error : new Error('Agent status check failed');
+      
+      // Log system error for status check
+      await logAPIError(errorObj, {
+        agentId,
+        operation: 'agent_status_check'
+      });
+      
       return {
         status: 'unknown'
       };

@@ -1,7 +1,10 @@
+import { reportAPIError, reportAgentError } from './error-reporter';
+
 export interface AgentRequest {
   input: string;
   context?: string;
   sessionId?: string;
+  isFirstMessage?: boolean;
 }
 
 export interface AgentResponse {
@@ -93,20 +96,38 @@ export class ApiClient {
   ): Promise<AgentResponse> {
     const url = `${this.baseUrl}/agent/${agentId}${includeMemory ? '?memory=true' : ''}`;
     
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    });
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      });
 
-    if (!response.ok) {
-      const error: ApiError = await response.json();
-      throw new Error(error.error || 'Request failed');
+      if (!response.ok) {
+        const error: ApiError = await response.json().catch(() => ({ 
+          error: 'Request failed', 
+          code: 'UNKNOWN_ERROR', 
+          timestamp: new Date().toISOString() 
+        }));
+        
+        const errorObj = new Error(error.error || 'Request failed');
+        
+        // Report API error
+        await reportAPIError(errorObj, url, 'POST', response.status);
+        
+        throw errorObj;
+      }
+
+      return response.json();
+    } catch (error) {
+      // Report as agent error if it's an agent-specific request
+      if (error instanceof Error) {
+        await reportAgentError(error, agentId, request.input);
+      }
+      throw error;
     }
-
-    return response.json();
   }
 
   async getAgentStatus(agentId: string): Promise<{
@@ -115,13 +136,24 @@ export class ApiClient {
     lastActivity?: string;
     timestamp: string;
   }> {
-    const response = await fetch(`${this.baseUrl}/agent/${agentId}/status`);
+    const url = `${this.baseUrl}/agent/${agentId}/status`;
     
-    if (!response.ok) {
-      throw new Error('Failed to get agent status');
-    }
+    try {
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        const errorObj = new Error('Failed to get agent status');
+        await reportAPIError(errorObj, url, 'GET', response.status);
+        throw errorObj;
+      }
 
-    return response.json();
+      return response.json();
+    } catch (error) {
+      if (error instanceof Error) {
+        await reportAPIError(error, url, 'GET');
+      }
+      throw error;
+    }
   }
 
   async getAvailableAgents(): Promise<{
@@ -138,13 +170,24 @@ export class ApiClient {
     total: number;
     timestamp: string;
   }> {
-    const response = await fetch(`${this.baseUrl}/agents`);
+    const url = `${this.baseUrl}/agents`;
     
-    if (!response.ok) {
-      throw new Error('Failed to get available agents');
-    }
+    try {
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        const errorObj = new Error('Failed to get available agents');
+        await reportAPIError(errorObj, url, 'GET', response.status);
+        throw errorObj;
+      }
 
-    return response.json();
+      return response.json();
+    } catch (error) {
+      if (error instanceof Error) {
+        await reportAPIError(error, url, 'GET');
+      }
+      throw error;
+    }
   }
 
   async getLogs(agentName?: string, limit: number = 10): Promise<LogsResponse> {
@@ -153,14 +196,28 @@ export class ApiClient {
       url += `&agent=${encodeURIComponent(agentName)}`;
     }
 
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      const error: ApiError = await response.json();
-      throw new Error(error.error || 'Failed to get logs');
-    }
+    try {
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        const error: ApiError = await response.json().catch(() => ({ 
+          error: 'Failed to get logs', 
+          code: 'UNKNOWN_ERROR', 
+          timestamp: new Date().toISOString() 
+        }));
+        
+        const errorObj = new Error(error.error || 'Failed to get logs');
+        await reportAPIError(errorObj, url, 'GET', response.status);
+        throw errorObj;
+      }
 
-    return response.json();
+      return response.json();
+    } catch (error) {
+      if (error instanceof Error) {
+        await reportAPIError(error, url, 'GET');
+      }
+      throw error;
+    }
   }
 
   async getMemory(agentId: string, userId?: string, limit?: number, minRelevance?: number): Promise<MemoryResponse> {

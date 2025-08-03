@@ -2,8 +2,9 @@
 
 import * as React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Mic, MicOff, Loader2 } from 'lucide-react';
+import { Send, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { VoiceRecorder } from './voice-recorder';
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -19,7 +20,6 @@ export function ChatInput({
   className 
 }: ChatInputProps) {
   const [message, setMessage] = React.useState('');
-  const [isRecording, setIsRecording] = React.useState(false);
   const [isFocused, setIsFocused] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -42,10 +42,15 @@ export function ChatInput({
     }
   };
 
-  const handleVoiceToggle = () => {
-    setIsRecording(!isRecording);
-    // TODO: Implement ElevenLabs integration
-    console.log('Voice recording:', !isRecording);
+  const handleTranscript = (transcript: string) => {
+    setMessage(transcript);
+    // Auto-focus the textarea after transcript is received
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(transcript.length, transcript.length);
+      }
+    }, 100);
   };
 
   // Auto-resize textarea
@@ -60,11 +65,11 @@ export function ChatInput({
 
   return (
     <div className={cn('border-t border-border bg-background/95 backdrop-blur', className)}>
-      <div className="mx-auto max-w-4xl p-4">
+      <div className="mx-auto max-w-4xl p-3 md:p-4">
         <form onSubmit={handleSubmit} className="relative">
           <div
             className={cn(
-              'relative flex items-end gap-2 rounded-2xl border transition-all duration-200',
+              'relative flex items-end gap-1 md:gap-2 rounded-2xl border transition-all duration-200',
               'bg-background shadow-sm',
               isFocused
                 ? 'border-primary/50 shadow-md ring-1 ring-primary/20'
@@ -83,11 +88,12 @@ export function ChatInput({
                 placeholder={placeholder}
                 disabled={disabled}
                 rows={1}
+                data-chat-input
                 className={cn(
-                  'w-full resize-none rounded-2xl bg-transparent px-4 py-3 pr-12',
+                  'w-full resize-none rounded-2xl bg-transparent px-3 md:px-4 py-3 pr-8 md:pr-12',
                   'text-sm placeholder:text-muted-foreground',
                   'focus:outline-none disabled:opacity-50',
-                  'max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-border'
+                  'max-h-24 md:max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-border'
                 )}
                 style={{ minHeight: '44px' }}
               />
@@ -107,63 +113,25 @@ export function ChatInput({
               </AnimatePresence>
             </div>
 
-            {/* Voice Button */}
-            <button
-              type="button"
-              onClick={handleVoiceToggle}
+            {/* Voice Recorder */}
+            <VoiceRecorder
+              onTranscript={handleTranscript}
               disabled={disabled}
-              className={cn(
-                'flex h-10 w-10 shrink-0 items-center justify-center rounded-full',
-                'transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring',
-                'disabled:opacity-50 disabled:cursor-not-allowed',
-                isRecording
-                  ? 'bg-red-500 text-white shadow-lg hover:bg-red-600'
-                  : 'bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground'
-              )}
-              aria-label={isRecording ? 'Stop recording' : 'Start voice recording'}
-            >
-              <AnimatePresence mode="wait">
-                {isRecording ? (
-                  <motion.div
-                    key="recording"
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.8, opacity: 0 }}
-                  >
-                    <MicOff className="h-4 w-4" />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="not-recording"
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.8, opacity: 0 }}
-                  >
-                    <Mic className="h-4 w-4" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Recording indicator */}
-              {isRecording && (
-                <motion.div
-                  className="absolute inset-0 rounded-full border-2 border-red-300"
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                />
-              )}
-            </button>
+              maxDuration={20}
+            />
 
             {/* Send Button */}
-            <button
+            <motion.button
               type="submit"
               disabled={!canSend}
+              whileHover={canSend ? { scale: 1.05 } : {}}
+              whileTap={canSend ? { scale: 0.95 } : {}}
               className={cn(
-                'flex h-10 w-10 shrink-0 items-center justify-center rounded-full mr-1',
+                'flex h-9 w-9 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-full mr-0.5 md:mr-1',
                 'transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring',
-                'disabled:opacity-50 disabled:cursor-not-allowed',
+                'disabled:opacity-50 disabled:cursor-not-allowed transform-gpu will-change-transform',
                 canSend
-                  ? 'bg-primary text-primary-foreground shadow-md hover:bg-primary/90 hover:scale-105'
+                  ? 'bg-primary text-primary-foreground shadow-md hover:bg-primary/90'
                   : 'bg-muted text-muted-foreground'
               )}
               aria-label="Send message"
@@ -176,7 +144,7 @@ export function ChatInput({
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.8, opacity: 0 }}
                   >
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
                   </motion.div>
                 ) : (
                   <motion.div
@@ -184,35 +152,18 @@ export function ChatInput({
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.8, opacity: 0 }}
-                    whileTap={{ scale: 0.9 }}
                   >
-                    <Send className="h-4 w-4" />
+                    <Send className="h-3 w-3 md:h-4 md:w-4" />
                   </motion.div>
                 )}
               </AnimatePresence>
-            </button>
+            </motion.button>
           </div>
 
-          {/* Voice Recording Feedback */}
-          <AnimatePresence>
-            {isRecording && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                className="absolute -top-12 left-1/2 transform -translate-x-1/2"
-              >
-                <div className="flex items-center gap-2 rounded-full bg-red-500 px-3 py-1 text-xs text-white shadow-lg">
-                  <div className="h-2 w-2 rounded-full bg-white animate-pulse" />
-                  Recording... (ElevenLabs integration coming soon)
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </form>
 
         {/* Shortcut hints */}
-        <div className="mt-2 flex items-center justify-center gap-4 text-xs text-muted-foreground">
+        <div className="mt-2 hidden sm:flex items-center justify-center gap-4 text-xs text-muted-foreground">
           <span>Press <kbd className="px-1 py-0.5 bg-muted rounded">Enter</kbd> to send</span>
           <span>•</span>
           <span><kbd className="px-1 py-0.5 bg-muted rounded">Shift + Enter</kbd> for new line</span>

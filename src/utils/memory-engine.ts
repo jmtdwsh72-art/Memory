@@ -2,6 +2,7 @@ import { supabase } from '../db/supabase';
 import { MemoryEntry, MemoryContext, MemoryPattern, MemorySearchOptions } from './types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { logMemoryError } from './error-logger';
 
 export class MemoryEngine {
   private static instance: MemoryEngine;
@@ -76,6 +77,16 @@ export class MemoryEngine {
         await this.analyzeAndUpdatePatterns(memoryEntry);
       }
     } catch (error) {
+      const errorObj = error instanceof Error ? error : new Error('Memory storage failed');
+      
+      // Log memory error with context
+      await logMemoryError(errorObj, {
+        agentId,
+        userId,
+        operation: 'memory_storage',
+        memoryId: memoryEntry.id
+      });
+      
       console.error('Error storing memory:', error);
       await this.storeMemoryToFile(memoryEntry);
     }

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageBubble, type Message } from './message-bubble';
+import { ChatErrorBoundary } from './error-boundary';
 import { cn } from '@/lib/utils';
 
 interface ChatInterfaceProps {
@@ -14,33 +15,76 @@ interface ChatInterfaceProps {
 export function ChatInterface({ messages, isLoading, className }: ChatInterfaceProps) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = React.useState(true);
+  const [isScrolling, setIsScrolling] = React.useState(false);
+  const scrollTimeoutRef = React.useRef<NodeJS.Timeout>();
+
+  // Smooth auto-scroll to bottom when new messages arrive
+  const scrollToBottom = React.useCallback((behavior: ScrollBehavior = 'smooth') => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior
+      });
+    }
+  }, []);
 
   // Auto-scroll to bottom when new messages arrive
   React.useEffect(() => {
-    if (shouldAutoScroll && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (shouldAutoScroll && messages.length > 0) {
+      // Small delay to ensure DOM has updated
+      const timer = setTimeout(() => {
+        scrollToBottom('smooth');
+      }, 50);
+      return () => clearTimeout(timer);
     }
-  }, [messages, shouldAutoScroll]);
+  }, [messages, shouldAutoScroll, scrollToBottom]);
 
-  // Track if user has scrolled up
+  // Track if user has scrolled up and handle scroll state
   const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 80;
+    
     setShouldAutoScroll(isNearBottom);
+    setIsScrolling(true);
+    
+    // Clear existing timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    
+    // Set scrolling to false after scroll ends
+    scrollTimeoutRef.current = setTimeout(() => {
+      setIsScrolling(false);
+    }, 150);
+  }, []);
+
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
   }, []);
 
   return (
-    <div
-      className={cn(
-        'flex h-full flex-col overflow-hidden',
-        className
-      )}
-    >
+    <ChatErrorBoundary>
+      <div
+        className={cn(
+          'flex h-full flex-col overflow-hidden',
+          className
+        )}
+      >
       {/* Messages Container */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto scroll-smooth"
+        data-chat-container
+        className={cn(
+          "flex-1 overflow-y-auto scroll-smooth",
+          "scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent",
+          "hover:scrollbar-thumb-muted-foreground/20"
+        )}
       >
         {messages.length === 0 ? (
           <div className="flex h-full items-center justify-center">
@@ -68,28 +112,59 @@ export function ChatInterface({ messages, isLoading, className }: ChatInterfaceP
             </motion.div>
           </div>
         ) : (
-          <div className="space-y-0">
-            <AnimatePresence initial={false}>
-              {messages.map((message) => (
-                <MessageBubble
-                  key={message.id}
-                  message={message}
-                />
-              ))}
-            </AnimatePresence>
-            
-            {/* Loading message */}
-            {isLoading && (
-              <MessageBubble
-                message={{
-                  id: 'loading',
-                  type: 'agent',
-                  content: '',
-                  timestamp: new Date().toISOString(),
-                  isLoading: true,
-                }}
-              />
-            )}
+          <div className="min-h-full flex flex-col justify-end">
+            <div className="space-y-0 py-4">
+              <AnimatePresence initial={false}>
+                {messages.map((message, index) => (
+                  <motion.div
+                    key={message.id}
+                    layout
+                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                    animate={{ 
+                      opacity: 1, 
+                      y: 0, 
+                      scale: 1,
+                      transition: {
+                        type: "spring",
+                        stiffness: 500,
+                        damping: 30,
+                        delay: index === messages.length - 1 ? 0.1 : 0
+                      }
+                    }}
+                    exit={{ 
+                      opacity: 0, 
+                      y: -10, 
+                      scale: 0.95,
+                      transition: { duration: 0.2 }
+                    }}
+                  >
+                    <MessageBubble
+                      message={message}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+              
+              {/* Loading message */}
+              {isLoading && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                >
+                  <MessageBubble
+                    message={{
+                      id: 'loading',
+                      type: 'agent',
+                      content: '',
+                      timestamp: new Date().toISOString(),
+                      isLoading: true,
+                    }}
+                  />
+                </motion.div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -103,10 +178,7 @@ export function ChatInterface({ messages, isLoading, className }: ChatInterfaceP
             exit={{ opacity: 0, scale: 0.8 }}
             onClick={() => {
               setShouldAutoScroll(true);
-              scrollRef.current?.scrollTo({
-                top: scrollRef.current.scrollHeight,
-                behavior: 'smooth'
-              });
+              scrollToBottom('smooth');
             }}
             className={cn(
               'absolute bottom-4 right-4 z-10',
@@ -133,6 +205,7 @@ export function ChatInterface({ messages, isLoading, className }: ChatInterfaceP
           </motion.button>
         )}
       </AnimatePresence>
-    </div>
+      </div>
+    </ChatErrorBoundary>
   );
 }

@@ -4,6 +4,9 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { config } from 'dotenv';
 import { agentRoutes } from './routes/agent-routes';
+import { ttsRoutes } from './routes/tts-routes';
+import { transcribeRoutes } from './routes/transcribe-routes';
+import { errorRoutes } from './routes/error-routes';
 import { errorHandler } from './middleware/error-handler';
 import SupabaseConnection from './db/supabase';
 
@@ -34,6 +37,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 app.use('/api', agentRoutes);
+app.use('/api', ttsRoutes);
+app.use('/api', transcribeRoutes);
+app.use('/api/errors', errorRoutes);
 
 app.get('/health', (_req, res) => {
   res.json({
@@ -60,6 +66,8 @@ async function startServer(): Promise<void> {
       console.log(`🚀 Memory AI Assistant API running on port ${PORT}`);
       console.log(`📡 Health check: http://localhost:${PORT}/health`);
       console.log(`🤖 Agent API: http://localhost:${PORT}/api/agent/:agentId`);
+      console.log(`🔊 TTS API: http://localhost:${PORT}/api/tts`);
+      console.log(`🎤 Transcribe API: http://localhost:${PORT}/api/transcribe`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);

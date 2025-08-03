@@ -2,9 +2,12 @@ import { AgentConfig, AgentMessage, AgentResponse } from '../utils/types';
 import { MemoryManager } from '../utils/memory-manager';
 import { ResearchAgent } from './agent-research';
 import { AutomationAgent } from './agent-automation';
+import { CreativeAgent } from './agent-creative';
+import { WelcomeAgent } from './agent-welcome';
 import { determineAgentByInput, getAllAgents } from '../config/agent-config';
 import { getAgentConfig } from '../utils/config-utils';
 import { useAgentMemoryWithPreset } from '../utils/memory-hooks';
+import { logAgentError, logSystemError } from '../utils/error-logger';
 
 export class RouterAgent {
   private config: AgentConfig;
@@ -31,14 +34,26 @@ export class RouterAgent {
         case 'automation':
           this.subAgents.set('automation', new AutomationAgent());
           break;
+        case 'creative':
+          this.subAgents.set('creative', new CreativeAgent());
+          break;
+        case 'welcome':
+          this.subAgents.set('welcome', new WelcomeAgent());
+          break;
         // Future agents can be added here
         default:
           console.warn(`Unknown agent type: ${agentConfig.id}`);
+          logSystemError(new Error(`Unknown agent type: ${agentConfig.id}`), {
+            agentId: 'router',
+            context: 'agent_initialization'
+          });
       }
     }
   }
 
   async processInput(input: string, userId?: string): Promise<AgentResponse> {
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
     try {
       // Use centralized memory utilities with router preset
       const memory = useAgentMemoryWithPreset(this.config.id, 'router', userId);
@@ -54,7 +69,25 @@ export class RouterAgent {
       if (!targetAgent) {
         response = await this.handleDirectResponse(input, contextString);
       } else {
-        response = await targetAgent.processInput(input, userId);
+        try {
+          response = await targetAgent.processInput(input, userId);
+        } catch (agentError) {
+          const errorObj = agentError instanceof Error ? agentError : new Error('Agent processing failed');
+          
+          // Log agent-specific error
+          await logAgentError(agentType, errorObj, {
+            input,
+            userId,
+            requestId,
+            sessionId: userId
+          });
+          
+          // Return fallback response
+          response = {
+            success: false,
+            message: `${agentType} agent encountered an error. Please try again or rephrase your request.`
+          };
+        }
       }
       
       // Store interaction using centralized utility
@@ -73,9 +106,19 @@ export class RouterAgent {
         memoryUpdated: true
       };
     } catch (error) {
+      const errorObj = error instanceof Error ? error : new Error('Unknown router error');
+      
+      // Log the error with context
+      await logAgentError('router', errorObj, {
+        input,
+        userId,
+        requestId,
+        sessionId: userId
+      });
+      
       return {
         success: false,
-        message: `Router error: ${error instanceof Error ? error.message : 'Unknown error'}`
+        message: `Router error: ${errorObj.message}`
       };
     }
   }
@@ -93,7 +136,8 @@ export class RouterAgent {
         'Search': '🔬',
         'Zap': '🛠️',
         'BarChart3': '📊',
-        'MessageCircle': '💬'
+        'MessageCircle': '💬',
+        'Sparkles': '✨'
       };
       const icon = iconMap[agent.icon] || '🤖';
       return `${icon} **${agent.name}**: ${agent.description}`;

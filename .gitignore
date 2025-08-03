@@ -19,6 +19,8 @@ build/
 # Memory and logs
 memory/logs/*.json
 memory/summaries/*.json
+logs/errors/*.json
+logs/errors/*.jsonl
 *.log
 
 # IDE files

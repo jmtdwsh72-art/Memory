@@ -156,5 +156,25 @@
       "let",
       "automate"
     ]
+  },
+  {
+    "id": "memory_1754187156061_esccal93m",
+    "agentId": "router",
+    "userId": "d178b68d-3d32-46c4-add7-d06ec6de0776",
+    "type": "summary",
+    "input": "Hello, test connection",
+    "summary": "Just tell me what you need help with, and I'll get you to the right specialist! Your request: \"Hello, test connection\"",
+    "context": "Routed to: router",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T02:12:36.061Z",
+    "createdAt": "2025-08-03T02:12:36.061Z",
+    "tags": [
+      "research",
+      "hello",
+      "test",
+      "connection",
+      "hey"
+    ]
   }
 ]
