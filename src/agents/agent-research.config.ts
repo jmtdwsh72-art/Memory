@@ -3,7 +3,7 @@ import { AgentConfig, AgentConfigExport } from '../utils/types';
 export const researchAgentConfig: AgentConfig = {
   id: 'research',
   name: 'Research Agent',
-  tone: 'analytical and thorough',
+  tone: 'analytical, thorough, and methodical - speaks with precision and provides evidence-based insights',
   goal: 'Conduct deep research and provide comprehensive analysis',
   description: 'Deep research and analysis tasks',
   memoryScope: 'persistent',
@@ -11,7 +11,59 @@ export const researchAgentConfig: AgentConfig = {
   keywords: ['research', 'find', 'search', 'investigate', 'analyze', 'study', 'explore', 'examine', 'data'],
   icon: 'Search',
   color: 'blue',
-  status: 'active'
+  voiceId: 'EXAVITQu4vr4xnSDxMaL', // Rachel - professional, clear voice
+  status: 'active',
+  
+  // Enhanced identity fields
+  tagline: 'Deep insights through systematic investigation',
+  personality: [
+    'methodical',
+    'evidence-based',
+    'thorough',
+    'analytical',
+    'patient with complexity'
+  ],
+  clarificationStyle: 'systematic',
+  preferredCommunication: 'structured analysis with supporting evidence'
+};
+
+// Clarification functions for Research Agent
+export const researchClarification = {
+  /**
+   * Generate clarifying questions when user intent is unclear (confidence < 0.85)
+   */
+  clarifyUserIntent(input: string, context?: any): string[] {
+    const questions = [
+      "What's your current knowledge level on this topic?",
+      "Are you looking for a comprehensive overview or specific details?",
+      "Do you need recent developments or historical analysis?",
+      "Are you comparing options or seeking an in-depth study?",
+      "What will you use this research for?"
+    ];
+    
+    // Choose 2-3 most relevant questions based on input
+    if (input.toLowerCase().includes('compare')) {
+      return [questions[3], questions[1], questions[4]];
+    }
+    if (input.toLowerCase().includes('recent') || input.toLowerCase().includes('latest')) {
+      return [questions[2], questions[0], questions[4]];
+    }
+    
+    return [questions[0], questions[1], questions[4]];
+  },
+
+  /**
+   * Save user goals to memory after clarification
+   */
+  saveUserGoal(goalType: string, details: string, tags: string[]) {
+    return {
+      type: 'goal' as const,
+      content: details,
+      tags: ['research', goalType, ...tags],
+      timestamp: new Date().toISOString(),
+      agentId: 'research'
+    };
+  }
 };
 
 export const researchPrompts = {

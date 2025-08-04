@@ -10,6 +10,8 @@ import {
 } from '@/lib/icons';
 import { iconComponents, getIconComponent } from '@/lib/icons';
 import { cn } from '@/lib/utils';
+import { AgentSelectorAvatar } from './assistant-avatar';
+import { getAssistantIdentity, getDisplayName, getEnhancedAgentIdentity, ASSISTANT_CONFIG } from '@/lib/assistant-identity.config';
 
 interface Agent {
   id: string;
@@ -83,30 +85,21 @@ export function AgentSidebar({ activeAgent, onAgentSelect, className }: AgentSid
         setAgents(agentList);
       } catch (error) {
         console.error('Failed to fetch agents:', error);
-        // Fallback to default agents if API fails
-        setAgents([
-          {
-            id: 'router',
-            name: 'General Chat',
-            description: 'General conversation and task routing',
-            icon: getIconComponentElement('MessageCircle'),
-            status: 'active',
-          },
-          {
-            id: 'research',
-            name: 'Research Agent',
-            description: 'Deep research and analysis tasks',
-            icon: getIconComponentElement('Search'),
-            status: 'active',
-          },
-          {
-            id: 'automation',
-            name: 'Automation Agent',
-            description: 'Prompt writing, scripting, and idea generation',
-            icon: getIconComponentElement('Zap'),
-            status: 'active',
-          },
-        ]);
+        // Fallback to default agents using identity system
+        const fallbackAgents = Object.keys(ASSISTANT_CONFIG.agents)
+          .filter(agentId => agentId !== 'welcome')
+          .map(agentId => {
+            const identity = getEnhancedAgentIdentity(agentId);
+            return {
+              id: agentId,
+              name: identity.name,
+              description: identity.tagline || `${identity.name} for specialized tasks`,
+              icon: getIconComponentElement(identity.icon || 'Brain'),
+              status: 'active' as const,
+            };
+          });
+        
+        setAgents(fallbackAgents);
       } finally {
         setLoading(false);
       }
@@ -118,8 +111,9 @@ export function AgentSidebar({ activeAgent, onAgentSelect, className }: AgentSid
   if (loading) {
     return (
       <div className={cn(
-        'flex h-full w-80 flex-col border-r border-border bg-card',
-        'md:w-64 lg:w-80',
+        'flex h-full flex-col border-r border-border bg-card',
+        'w-80 lg:w-64 xl:w-80',
+        'flex-shrink-0',
         className
       )}>
         <div className="flex items-center justify-between border-b border-border p-4">
@@ -150,8 +144,9 @@ export function AgentSidebar({ activeAgent, onAgentSelect, className }: AgentSid
   return (
     <aside
       className={cn(
-        'flex h-full w-80 flex-col border-r border-border bg-card',
-        'md:w-64 lg:w-80',
+        'flex h-full flex-col border-r border-border bg-card',
+        'w-72 sm:w-80 lg:w-64 xl:w-80',
+        'flex-shrink-0',
         className
       )}
       role="navigation"
@@ -160,11 +155,16 @@ export function AgentSidebar({ activeAgent, onAgentSelect, className }: AgentSid
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border p-4">
         <div className="flex items-center gap-2">
-          <Brain className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-card-foreground">Agents</span>
+          <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-700 text-slate-100">
+            <Brain className="h-4 w-4" />
+          </div>
+          <div>
+            <span className="font-semibold text-card-foreground text-sm">{ASSISTANT_CONFIG.default.name}</span>
+            <div className="text-xs text-muted-foreground">Choose your assistant</div>
+          </div>
         </div>
         <div className="text-xs text-muted-foreground">
-          {agents.filter(a => a.status === 'active').length} active
+          {agents.filter(a => a.status === 'active').length} available
         </div>
       </div>
 
@@ -213,24 +213,14 @@ export function AgentSidebar({ activeAgent, onAgentSelect, className }: AgentSid
                 />
               )}
 
-              {/* Icon */}
-              <motion.div
-                className={cn(
-                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
-                  'border transition-all duration-300 ease-out',
-                  'group-hover:shadow-sm',
-                  activeAgent === agent.id
-                    ? 'border-primary/30 bg-primary/15 text-primary shadow-sm'
-                    : 'border-border bg-background text-muted-foreground group-hover:border-primary/20 group-hover:bg-primary/5 group-hover:text-primary'
-                )}
-                whileHover={activeAgent !== agent.id ? { 
-                  scale: 1.05,
-                  rotate: 2
-                } : {}}
-                transition={{ duration: 0.2 }}
-              >
-                {agent.icon}
-              </motion.div>
+              {/* Agent Avatar */}
+              <div className="shrink-0">
+                <AgentSelectorAvatar
+                  agentId={agent.id}
+                  isActive={activeAgent === agent.id}
+                  size="md"
+                />
+              </div>
 
               {/* Content */}
               <div className="min-w-0 flex-1">

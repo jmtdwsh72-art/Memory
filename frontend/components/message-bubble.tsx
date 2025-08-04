@@ -6,16 +6,20 @@ import { User, Bot, Copy, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatTimestamp } from '@/lib/utils';
 import { VoicePlayer } from './voice-player';
+import { AssistantAvatar } from './assistant-avatar';
+import { getDisplayName, getEnhancedAgentIdentity } from '@/lib/assistant-identity.config';
 
 export interface Message {
   id: string;
-  type: 'user' | 'agent';
+  type: 'user' | 'agent' | 'routing';
   content: string;
   timestamp: string;
   agentName?: string;
   agentId?: string;
   memoryUsed?: string[];
   isLoading?: boolean;
+  routedTo?: string; // The agent this message was routed to
+  isSubAgentReply?: boolean; // Whether this is a reply from a sub-agent after routing
 }
 
 interface MessageBubbleProps {
@@ -26,6 +30,8 @@ interface MessageBubbleProps {
 export function MessageBubble({ message, className }: MessageBubbleProps) {
   const [copied, setCopied] = React.useState(false);
   const isUser = message.type === 'user';
+  const isRouting = message.type === 'routing';
+  const isSubAgentReply = message.isSubAgentReply;
 
   const handleCopy = async () => {
     try {
@@ -37,48 +43,84 @@ export function MessageBubble({ message, className }: MessageBubbleProps) {
     }
   };
 
+  // Special styling for routing messages
+  if (isRouting) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className={cn(
+          'flex justify-center px-4 md:px-6 py-3',
+          className
+        )}
+      >
+        <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-muted/50 border border-border/50 text-sm text-muted-foreground">
+          <AssistantAvatar
+            agentId="router"
+            size="xs"
+            status="thinking"
+            animate={true}
+          />
+          <span>Routing to {message.routedTo ? getEnhancedAgentIdentity(message.routedTo).name : 'specialist'} agent...</span>
+          <AssistantAvatar
+            agentId={message.routedTo || 'router'}
+            size="xs"
+            status="active"
+            animate={true}
+          />
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
       className={cn(
-        'group relative flex gap-3 px-4 md:px-6 py-4 md:py-6',
+        'group relative flex gap-2 sm:gap-3 px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6',
         'transition-all duration-300 ease-out',
         'hover:bg-gradient-to-r',
         isUser 
           ? 'flex-row-reverse hover:from-primary/5 hover:to-primary/10' 
           : 'flex-row hover:from-accent/30 hover:to-accent/10',
         'rounded-xl border-l-4 border-transparent hover:border-primary/30',
+        isSubAgentReply && 'ml-4 sm:ml-8 md:ml-12', // Indent sub-agent replies
         className
       )}
     >
       {/* Enhanced Avatar */}
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
-        className={cn(
-          'flex h-10 w-10 md:h-12 md:w-12 shrink-0 items-center justify-center rounded-2xl',
-          'ring-2 ring-background transition-all duration-300 shadow-lg',
-          'group-hover:ring-4 group-hover:ring-primary/20 group-hover:shadow-xl',
-          'backdrop-blur-sm border border-white/10',
-          isUser
-            ? 'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground hover:from-primary/90 hover:to-primary/70'
-            : 'bg-gradient-to-br from-secondary via-secondary/90 to-secondary/80 text-secondary-foreground hover:from-secondary/90 hover:to-secondary/70'
-        )}
-      >
+      {isUser ? (
         <motion.div
-          whileHover={{ scale: 1.1, rotate: 5 }}
-          transition={{ type: "spring", stiffness: 400 }}
-        >
-          {isUser ? (
-            <User className="h-5 w-5 md:h-6 md:w-6" />
-          ) : (
-            <Bot className="h-5 w-5 md:h-6 md:w-6" />
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
+          className={cn(
+            'flex h-10 w-10 md:h-12 md:w-12 shrink-0 items-center justify-center rounded-2xl',
+            'ring-2 ring-background transition-all duration-300 shadow-lg',
+            'group-hover:ring-4 group-hover:ring-primary/20 group-hover:shadow-xl',
+            'backdrop-blur-sm border border-white/10',
+            'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground hover:from-primary/90 hover:to-primary/70'
           )}
+        >
+          <motion.div
+            whileHover={{ scale: 1.1, rotate: 5 }}
+            transition={{ type: "spring", stiffness: 400 }}
+          >
+            <User className="h-5 w-5 md:h-6 md:w-6" />
+          </motion.div>
         </motion.div>
-      </motion.div>
+      ) : (
+        <AssistantAvatar
+          agentId={message.agentId || 'router'}
+          size="md"
+          status={message.isLoading ? 'thinking' : 'active'}
+          animate={true}
+          className="shrink-0"
+        />
+      )}
 
       {/* Enhanced Message Content */}
       <div
@@ -101,7 +143,7 @@ export function MessageBubble({ message, className }: MessageBubbleProps) {
             className="text-foreground/90 font-semibold"
             whileHover={{ scale: 1.05 }}
           >
-            {isUser ? 'You' : message.agentName || 'Assistant'}
+            {isUser ? 'You' : (message.agentId ? getEnhancedAgentIdentity(message.agentId).name : message.agentName || 'Assistant')}
           </motion.span>
           <span className="text-muted-foreground/50">•</span>
           <span className="text-muted-foreground/70">{formatTimestamp(message.timestamp)}</span>
@@ -131,8 +173,8 @@ export function MessageBubble({ message, className }: MessageBubbleProps) {
             'group-hover:shadow-xl group-hover:scale-[1.02] group-hover:-translate-y-1',
             'transform-gpu will-change-transform',
             isUser
-              ? 'bg-gradient-to-br from-primary via-primary/95 to-primary/90 text-primary-foreground border-primary/30 ml-6 md:ml-12 shadow-primary/20'
-              : 'bg-gradient-to-br from-card via-card/95 to-card/90 text-card-foreground border-border/50 mr-6 md:mr-12 group-hover:border-primary/30 shadow-black/5'
+              ? 'bg-gradient-to-br from-primary via-primary/95 to-primary/90 text-primary-foreground border-primary/30 ml-3 sm:ml-6 md:ml-12 shadow-primary/20'
+              : 'bg-gradient-to-br from-card via-card/95 to-card/90 text-card-foreground border-border/50 mr-3 sm:mr-6 md:mr-12 group-hover:border-primary/30 shadow-black/5'
           )}
         >
           {message.isLoading ? (

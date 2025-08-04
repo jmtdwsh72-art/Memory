@@ -2,15 +2,18 @@ import { AgentConfig, AgentMessage, AgentResponse } from '../utils/types';
 import { MemoryManager } from '../utils/memory-manager';
 import { getAgentConfig } from '../utils/config-utils';
 import { useAgentMemoryWithPreset } from '../utils/memory-hooks';
+import { ConversationalBehavior } from '../utils/conversational-behavior';
 
 export class CreativeAgent {
   private config: AgentConfig;
   private memoryManager: MemoryManager;
+  private conversational: ConversationalBehavior;
 
   constructor() {
     // Load validated configuration using centralized utility
     this.config = getAgentConfig('creative');
     this.memoryManager = new MemoryManager();
+    this.conversational = new ConversationalBehavior();
   }
 
   async processInput(input: string, userId?: string): Promise<AgentResponse> {
@@ -22,11 +25,35 @@ export class CreativeAgent {
       const memoryContext = await memory.recallWithPreset(input);
       const contextString = memory.buildContext(memoryContext);
       
-      const response = await this.generateResponse(input, contextString);
+      // Check if we should ask clarifying questions
+      const taskType = this.identifyTaskType(input);
+      const hasRecentInteraction = await this.conversational.checkRecentInteraction(
+        this.config.id,
+        userId
+      );
+      
+      // Calculate confidence based on task analysis
+      const confidence = this.calculateTaskConfidence(input, taskType);
+      
+      // Determine if we should use conversational approach
+      const shouldClarify = !hasRecentInteraction && 
+        this.conversational.shouldAskClarification(input, confidence, userId);
+      
+      let response: string;
+      
+      if (shouldClarify) {
+        // Generate conversational response with clarifying questions
+        const acknowledgment = this.conversational.generateAcknowledgment('creative', { taskType });
+        const questions = this.conversational.generateClarifyingQuestions('creative', input, { taskType });
+        response = this.conversational.formatConversationalResponse(acknowledgment, questions);
+      } else {
+        // Generate full response
+        response = await this.generateResponse(input, contextString);
+      }
       
       // Store interaction using centralized utility with goal tracking
-      const taskType = this.identifyTaskType(input);
-      const goalTag = this.extractGoalTag(input, taskType);
+      const storedTaskType = this.identifyTaskType(input);
+      const goalTag = this.extractGoalTag(input, storedTaskType);
       
       // Save as goal type with appropriate tags
       await memory.saveMemory(
@@ -34,7 +61,7 @@ export class CreativeAgent {
         response, 
         `creative_goal: ${goalTag}`,
         'goal',
-        ['creative', taskType, 'brainstorming', 'creative_goal']
+        ['creative', storedTaskType, 'brainstorming', 'creative_goal']
       );
 
       await this.logInteraction({
@@ -85,6 +112,33 @@ export class CreativeAgent {
     response += '\n\n✨ This creative session has been saved to my memory for future inspiration!';
     
     return response;
+  }
+
+  private calculateTaskConfidence(input: string, taskType: string): number {
+    let confidence = 0.4; // Base confidence
+    
+    const lowerInput = input.toLowerCase();
+    
+    // Increase confidence for specific task indicators
+    if (taskType === 'naming' && (lowerInput.includes('company') || lowerInput.includes('product') || lowerInput.includes('brand'))) {
+      confidence += 0.3;
+    }
+    
+    if (taskType === 'story' && (lowerInput.includes('about') || lowerInput.includes('character') || lowerInput.includes('genre'))) {
+      confidence += 0.3;
+    }
+    
+    // Check for context indicators
+    if (lowerInput.includes('for') || lowerInput.includes('about') || lowerInput.includes('that')) {
+      confidence += 0.2;
+    }
+    
+    // Short inputs have lower confidence
+    if (input.split(' ').length < 5) {
+      confidence -= 0.2;
+    }
+    
+    return Math.min(Math.max(confidence, 0), 1.0);
   }
 
   private identifyTaskType(input: string): 'brainstorm' | 'naming' | 'story' {

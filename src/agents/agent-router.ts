@@ -86,11 +86,21 @@ export class RouterAgent {
         // Check if we should bypass clarification based on user history
         const shouldBypass = await this.shouldBypassClarification(input, userId, intentResult);
         
-        // Check if we need clarification for ambiguous intents
-        if (intentResult.confidence < 0.7 && intentResult.confidence > 0.3 && !shouldBypass) {
+        // For high confidence routing (> 0.6), auto-switch to specialist agent
+        if (intentResult.confidence > 0.6 || shouldBypass) {
+          // Route to the target agent with clear handoff format
+          response = await this.routeToAgentWithHandoff(agentType, targetAgent, input, userId, {
+            originalInput: input,
+            contextSummary: contextString,
+            routingReason: intentResult.reasoning,
+            confidence: intentResult.confidence,
+            recentRoutings,
+            bypassedClarification: shouldBypass
+          });
+        } else if (intentResult.confidence < 0.7 && intentResult.confidence > 0.3 && !shouldBypass) {
           response = await this.handleClarificationRequest(input, intentResult);
         } else {
-          // Route to the target agent with context preservation
+          // Medium confidence - still route but with less certainty
           response = await this.routeToAgent(agentType, targetAgent, input, userId, {
             originalInput: input,
             contextSummary: contextString,
@@ -105,8 +115,12 @@ export class RouterAgent {
         response = await this.handleDirectResponse(input, contextString);
       }
       
-      // Store interaction with routing metadata
-      await memory.saveMemory(input, response.message, `Routed to: ${agentType} (confidence: ${intentResult.confidence})`);
+      // Store interaction with routing metadata and cross-agent context
+      await memory.saveMemory(
+        input, 
+        response.message, 
+        `ROUTING_HANDOFF: ${agentType} (confidence: ${intentResult.confidence}) | Session: ${userId} | Original input preserved for target agent`
+      );
       
       // Log the routing decision
       await this.logInteraction({
@@ -135,6 +149,64 @@ export class RouterAgent {
       return {
         success: false,
         message: `Router error: ${errorObj.message}`
+      };
+    }
+  }
+
+  private async routeToAgentWithHandoff(
+    agentType: string, 
+    targetAgent: any, 
+    input: string, 
+    userId?: string,
+    routingContext?: {
+      originalInput: string;
+      contextSummary?: string;
+      routingReason?: string;
+      confidence?: number;
+      recentRoutings?: any[];
+      bypassedClarification?: boolean;
+    }
+  ): Promise<AgentResponse> {
+    try {
+      // Get agent configuration for personalized handoff
+      const agentConfig = getAllAgents().find(agent => agent.id === agentType);
+      const agentName = agentConfig?.name || 'Specialist Agent';
+
+      // Log the successful routing
+      await this.logRoutingTransition(agentType, input, userId, {
+        success: true,
+        confidence: routingContext?.confidence || 0,
+        reasoning: routingContext?.routingReason || 'keyword match'
+      });
+
+      // Return routing decision without executing the agent
+      // The frontend will handle the actual routing and agent execution
+      return {
+        success: true,
+        message: `Routing to ${agentName}...`,
+        routing: {
+          shouldRoute: true,
+          targetAgent: agentType,
+          confidence: routingContext?.confidence || 0,
+          reasoning: routingContext?.routingReason || 'keyword match',
+          originalInput: input
+        }
+      };
+
+    } catch (error) {
+      const errorObj = error instanceof Error ? error : new Error('Routing failed');
+      
+      // Log the routing failure
+      await this.logRoutingTransition(agentType, input, userId, {
+        success: false,
+        confidence: routingContext?.confidence || 0,
+        reasoning: `Routing error: ${errorObj.message}`
+      });
+
+      // Return fallback response without routing
+      return {
+        success: false,
+        message: `I encountered an issue with routing. Let me help you directly instead.`
       };
     }
   }
@@ -360,17 +432,26 @@ export class RouterAgent {
   private analyzeUserIntent(input: string): { agentId: string | null; confidence: number; reasoning: string } {
     const lowerInput = input.toLowerCase().trim();
     
-    // Intent patterns with confidence scoring
+    // Intent patterns with confidence scoring and synonyms
     const intentPatterns = [
-      // Research patterns
+      // Research patterns (including learning and programming)
       {
         agentId: 'research',
         patterns: [
           /^(what|who|when|where|why|how|tell me about|explain|research|find|investigate|analyze|study|explore)/,
           /\b(learn|understand|information|data|facts|evidence|statistics|trends|comparison)\b/,
-          /\b(research|investigate|analyze|study|explore|examine|compare|evaluate)\b/
+          /\b(research|investigate|analyze|study|explore|examine|compare|evaluate)\b/,
+          /\b(i want to learn|teach me|how to|how do i|show me how)\b/,
+          /\b(tutorial|guide|instructions|steps|walkthrough)\b/
         ],
-        keywords: ['python', 'technology', 'science', 'market', 'analysis', 'data', 'study'],
+        keywords: [
+          // Programming synonyms
+          'python', 'javascript', 'java', 'c++', 'programming', 'coding', 'code', 'development', 'software',
+          // General learning
+          'technology', 'science', 'market', 'analysis', 'data', 'study', 'course', 'training',
+          // Specific topics
+          'algorithm', 'database', 'framework', 'library', 'api', 'web development', 'machine learning'
+        ],
         weight: 1.0
       },
       

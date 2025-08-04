@@ -4,36 +4,45 @@
 
 @layer base {
   :root {
+    /* Memory Agent Premium Slate Theme */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 215.4 16.3% 9.8%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 215.4 16.3% 9.8%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 96%;
+    --popover-foreground: 215.4 16.3% 9.8%;
+    --primary: 215.4 16.3% 46.9%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 210 40% 98%;
+    --secondary-foreground: 215.4 16.3% 9.8%;
+    --muted: 210 40% 98%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 84% 4.9%;
+    --accent: 210 40% 98%;
+    --accent-foreground: 215.4 16.3% 9.8%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 215.4 16.3% 46.9%;
     --radius: 0.75rem;
+    
+    /* Custom Memory Agent colors */
+    --brand-primary: 215.4 16.3% 46.9%;
+    --brand-surface: 210 40% 98%;
+    --brand-surface-elevated: 0 0% 100%;
+    --memory-gradient-start: 215.4 16.3% 46.9%;
+    --memory-gradient-end: 215.4 16.3% 36.9%;
   }
 
   .dark {
+    /* Memory Agent Premium Dark Slate Theme */
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
+    --primary: 210 40% 98%;
     --primary-foreground: 222.2 84% 4.9%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
@@ -45,7 +54,14 @@
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 94.1%;
+    --ring: 212.7 26.8% 83.9%;
+    
+    /* Custom Memory Agent dark colors */
+    --brand-primary: 210 40% 98%;
+    --brand-surface: 217.2 32.6% 17.5%;
+    --brand-surface-elevated: 222.2 84% 4.9%;
+    --memory-gradient-start: 210 40% 98%;
+    --memory-gradient-end: 215 20.2% 85.1%;
   }
 }
 
@@ -59,6 +75,25 @@
 }
 
 @layer components {
+  /* Memory Agent Brand Components */
+  .memory-gradient {
+    background: linear-gradient(135deg, hsl(var(--memory-gradient-start)) 0%, hsl(var(--memory-gradient-end)) 100%);
+  }
+  
+  .memory-surface {
+    background-color: hsl(var(--brand-surface));
+  }
+  
+  .memory-surface-elevated {
+    background-color: hsl(var(--brand-surface-elevated));
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  }
+  
+  .memory-text-primary {
+    color: hsl(var(--brand-primary));
+  }
+  
+  /* Enhanced shimmer effect */
   .shimmer {
     position: relative;
     overflow: hidden;
@@ -88,6 +123,47 @@
       rgba(255, 255, 255, 0.1),
       transparent
     );
+  }
+  
+  /* Thoughtful animations */
+  .memory-pulse {
+    animation: memory-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  .memory-float {
+    animation: memory-float 3s ease-in-out infinite;
+  }
+  
+  @keyframes memory-pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.8;
+      transform: scale(1.05);
+    }
+  }
+  
+  @keyframes memory-float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+  
+  /* Premium glass morphism effect */
+  .glass-surface {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  .dark .glass-surface {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
 }
 

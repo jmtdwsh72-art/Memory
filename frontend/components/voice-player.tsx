@@ -4,6 +4,7 @@ import * as React from 'react';
 import { motion } from 'framer-motion';
 import { Volume2, VolumeX, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getAgentVoiceId } from '@/../../src/utils/agent-identity';
 
 interface VoicePlayerProps {
   text: string;
@@ -69,6 +70,9 @@ export function VoicePlayer({
       }
       abortControllerRef.current = new AbortController();
 
+      // Get agent's voice ID with fallback
+      const effectiveVoiceId = voiceId || (agentId ? getAgentVoiceId(agentId) : 'EXAVITQu4vr4xnSDxMaL');
+
       const response = await fetch('/api/tts', {
         method: 'POST',
         headers: {
@@ -77,7 +81,7 @@ export function VoicePlayer({
         body: JSON.stringify({
           text: text.slice(0, 300), // Limit to 300 characters
           agentId,
-          voiceId
+          voiceId: effectiveVoiceId
         }),
         signal: abortControllerRef.current.signal
       });

@@ -68,6 +68,9 @@ import {
   Clock,
   User,
   Shield,
+  
+  // Additional UI
+  MoreHorizontal,
 } from 'lucide-react';
 
 // Export only the icons we use to enable proper tree-shaking
@@ -138,6 +141,9 @@ export {
   Clock,
   User,
   Shield,
+  
+  // Additional UI
+  MoreHorizontal,
 };
 
 // Type for all available icons

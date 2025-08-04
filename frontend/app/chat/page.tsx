@@ -10,6 +10,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { AgentSidebar } from '@/components/agent-sidebar';
 import { ChatInterface } from '@/components/chat-interface';
 import { ChatInput } from '@/components/chat-input';
+import { BrandedChatHeader } from '@/components/branded-chat-header';
 import { LazyLogsPanel } from '@/components/lazy-logs-panel';
 import { LazyMemoryViewer } from '@/components/lazy-memory-viewer';
 import { SettingsPanel, SettingsToggle } from '@/components/settings-panel';
@@ -41,25 +42,63 @@ function ChatPageContent() {
     onSuccess: (response) => {
       console.log('[ChatPage] Agent response received:', response);
       
-      // Add agent response to messages
-      const agentMessage: Message = {
-        id: `agent_${Date.now()}`,
-        type: 'agent',
-        content: response.reply,
-        timestamp: response.timestamp,
-        agentName: response.agentName,
-        agentId: activeAgent,
-        memoryUsed: response.memoryUsed,
-      };
-      
-      console.log('[ChatPage] Adding agent message:', agentMessage);
-      
-      setMessages(prev => {
-        console.log('[ChatPage] Previous messages:', prev);
-        const newMessages = [...prev, agentMessage];
-        console.log('[ChatPage] New messages:', newMessages);
-        return newMessages;
-      });
+      // Check if this response includes routing metadata
+      if (response.routing && response.routing.shouldRoute) {
+        const { targetAgent, originalInput, confidence, reasoning } = response.routing;
+        
+        console.log('[ChatPage] Detected routing decision:', { 
+          from: activeAgent, 
+          to: targetAgent, 
+          confidence,
+          reasoning
+        });
+        
+        // Add routing message to current thread
+        const routingMessage: Message = {
+          id: `routing_${Date.now()}`,
+          type: 'routing',
+          content: response.reply, // "Routing to Research Agent..."
+          timestamp: response.timestamp,
+          agentName: 'Router',
+          agentId: 'router',
+          routedTo: targetAgent,
+          memoryUsed: [],
+        };
+        
+        setMessages(prev => [...prev, routingMessage]);
+        
+        // Navigate to the new agent thread with the original input
+        console.log('[ChatPage] Navigating to agent thread:', targetAgent);
+        router.push(`/chat?agent=${targetAgent}`);
+        
+        // Set up the new agent context
+        setTimeout(() => {
+          console.log('[ChatPage] Setting up new agent context');
+          setActiveAgent(targetAgent);
+          
+          // Send the original input to the new agent
+          handleSendMessageToNewAgent(originalInput, targetAgent);
+        }, 100);
+        
+      } else {
+        // Regular agent message (no routing)
+        const agentMessage: Message = {
+          id: `agent_${Date.now()}`,
+          type: 'agent',
+          content: response.reply,
+          timestamp: response.timestamp,
+          agentName: response.agentName || 'Assistant',
+          agentId: activeAgent,
+          memoryUsed: response.memoryUsed || [],
+        };
+        
+        console.log('[ChatPage] Adding regular agent message:', {
+          agentId: agentMessage.agentId,
+          contentLength: agentMessage.content.length
+        });
+        
+        setMessages(prev => [...prev, agentMessage]);
+      }
     },
     onError: (error) => {
       console.error('[ChatPage] Agent request error:', error);
@@ -145,6 +184,39 @@ function ChatPageContent() {
     }
   }, [messages, handleSendMessage]);
 
+  const handleSendMessageToNewAgent = async (message: string, agentId: string) => {
+    console.log('[ChatPage] Sending message to new agent:', { message, agentId, sessionId });
+    
+    // Clear current messages for the new agent thread
+    setMessages([]);
+    
+    // Add user message immediately
+    const userMessage: Message = {
+      id: `user_${Date.now()}`,
+      type: 'user',
+      content: message,
+      timestamp: new Date().toISOString(),
+      agentName: 'User',
+      agentId: 'user',
+      memoryUsed: [],
+    };
+    
+    setMessages([userMessage]);
+
+    // Send to the new agent with preserved session context
+    try {
+      await agentRequest.sendRequest(agentId, {
+        input: message,
+        sessionId, // Preserve the same session ID across agent switches
+        context: `[Agent handoff from router] User session ${sessionId}`, // Add context for memory continuity
+        isFirstMessage: false, // This is a continuation of the session, not truly first
+      }, true); // Enable memory for continuity across agents
+    } catch (error) {
+      console.error('[ChatPage] Failed to send message to new agent:', error);
+      // Error handling is managed by the hook's onError callback
+    }
+  };
+
   const navigateToDashboard = () => {
     router.push('/dashboard');
   };
@@ -186,56 +258,55 @@ function ChatPageContent() {
           <div 
             className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
             onClick={() => setSidebarOpen(false)}
+            aria-label="Close sidebar"
           />
         )}
 
-        {/* Agent Sidebar */}
-        <AgentSidebar
-          activeAgent={activeAgent}
-          onAgentSelect={setActiveAgent}
-          className="lg:translate-x-0"
-        />
+        {/* Main Layout Container */}
+        <div className="flex h-screen">
+          {/* Agent Sidebar */}
+          <AgentSidebar
+            activeAgent={activeAgent}
+            onAgentSelect={(agentId) => {
+              console.log('[ChatPage] Manual agent selection:', agentId);
+              setActiveAgent(agentId);
+              setSidebarOpen(false); // Close sidebar on mobile after selection
+              
+              // Update URL to reflect the new agent
+              router.push(`/chat?agent=${agentId}`);
+              
+              // Clear messages for new agent thread (except if staying on router)
+              if (agentId !== 'router') {
+                setMessages([]);
+              }
+            }}
+            className={cn(
+              "fixed lg:relative lg:block z-50",
+              "transition-transform duration-300 ease-in-out",
+              "inset-y-0 left-0",
+              sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+            )}
+          />
 
-        {/* Main Layout */}
-        <div className="lg:pl-80">
-          {/* Header Bar */}
-          <header className="sticky top-0 z-30 w-full border-b border-border/40 bg-background/95 backdrop-blur-xl">
-            <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:px-6">
-              <div className="flex items-center gap-4">
-                {/* Mobile Menu Button */}
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="p-2 rounded-lg hover:bg-accent transition-colors lg:hidden"
-                  aria-label="Open agent sidebar"
-                >
-                  <Menu className="h-5 w-5" />
-                </button>
-
-                {/* Back to Dashboard */}
-                <button
-                  onClick={navigateToDashboard}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-accent transition-colors text-sm text-muted-foreground hover:text-foreground"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Dashboard</span>
-                </button>
-
-                {/* Agent Status Indicator */}
-                <div className="flex items-center gap-3">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span className="text-sm font-medium text-foreground capitalize">
-                    {activeAgent} Agent
-                  </span>
-                  {agentRequest.isLoading && (
-                    <div className="text-xs text-muted-foreground">
-                      Thinking...
-                    </div>
-                  )}
-                </div>
+          {/* Main Content Area */}
+          <div className="flex-1 flex flex-col min-w-0">
+          {/* Branded Header */}
+          <BrandedChatHeader
+            activeAgent={activeAgent}
+            isLoading={agentRequest.isLoading}
+            status={agentRequest.isLoading ? 'thinking' : 'listening'}
+            onToggleSidebar={() => setSidebarOpen(true)}
+            onNavigateBack={navigateToDashboard}
+          />
+          
+          {/* Action Bar */}
+          <div className="border-b border-border/40 bg-background/50 backdrop-blur-sm">
+            <div className="mx-auto flex h-12 max-w-7xl items-center justify-between px-4 lg:px-6">
+              <div className="flex items-center gap-2">
+                {/* Additional context info could go here */}
               </div>
               
               <div className="flex items-center gap-2">
-                {/* Action Buttons */}
                 <GlobalMuteToggle />
                 
                 <button
@@ -259,10 +330,9 @@ function ChatPageContent() {
                 />
                 
                 <CommandPaletteTrigger />
-                <ThemeToggle />
               </div>
             </div>
-          </header>
+          </div>
 
           {/* Chat Workspace */}
           <main className="relative">
@@ -297,6 +367,7 @@ function ChatPageContent() {
               />
             )}
           </main>
+          </div>
         </div>
 
         {/* Side Panels */}

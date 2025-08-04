@@ -2,15 +2,19 @@ import { AgentConfig, AgentMessage, AgentResponse } from '../utils/types';
 import { MemoryManager } from '../utils/memory-manager';
 import { getAgentConfig } from '../utils/config-utils';
 import { useAgentMemoryWithPreset } from '../utils/memory-hooks';
+import { ConversationalBehavior } from '../utils/conversational-behavior';
+import { ConversationalHandler } from '../utils/conversational-handler';
 
 export class ResearchAgent {
   private config: AgentConfig;
   private memoryManager: MemoryManager;
+  private conversational: ConversationalBehavior;
 
   constructor() {
     // Load validated configuration using centralized utility
     this.config = getAgentConfig('research');
     this.memoryManager = new MemoryManager();
+    this.conversational = new ConversationalBehavior();
   }
 
   async processInput(input: string, userId?: string): Promise<AgentResponse> {
@@ -22,11 +26,35 @@ export class ResearchAgent {
       const memoryContext = await memory.recallWithPreset(input);
       const contextString = memory.buildContext(memoryContext);
       
-      const response = await this.generateResponse(input, contextString);
+      // Check if we should ask clarifying questions
+      const intent = this.analyzeResearchIntent(input);
+      const hasRecentInteraction = await this.conversational.checkRecentInteraction(
+        this.config.id,
+        userId
+      );
+      
+      // Calculate confidence based on intent analysis
+      const confidence = this.calculateIntentConfidence(intent);
+      
+      // Determine if we should use conversational approach
+      const shouldClarify = !hasRecentInteraction && 
+        this.conversational.shouldAskClarification(input, confidence, userId);
+      
+      let response: string;
+      
+      if (shouldClarify) {
+        // Generate conversational response with clarifying questions
+        const acknowledgment = this.conversational.generateAcknowledgment('research', intent);
+        const questions = this.conversational.generateClarifyingQuestions('research', input, intent);
+        response = this.conversational.formatConversationalResponse(acknowledgment, questions);
+      } else {
+        // Generate full response
+        response = await this.generateResponse(input, contextString);
+      }
       
       // Store interaction using centralized utility with goal tracking
-      const intent = this.analyzeResearchIntent(input);
-      const goalTag = `${intent.type}_${intent.subject.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).slice(0, 3).join('_').toLowerCase()}`;
+      const storedIntent = this.analyzeResearchIntent(input);
+      const goalTag = `${storedIntent.type}_${storedIntent.subject.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).slice(0, 3).join('_').toLowerCase()}`;
       
       // Save as goal type with appropriate tags
       await memory.saveMemory(
@@ -34,7 +62,7 @@ export class ResearchAgent {
         response, 
         `research_goal: ${goalTag}`,
         'goal',
-        ['research', intent.type, intent.subject.toLowerCase(), 'learning_goal']
+        ['research', storedIntent.type, storedIntent.subject.toLowerCase(), 'learning_goal']
       );
 
       await this.logInteraction({
@@ -97,6 +125,17 @@ export class ResearchAgent {
     }
     
     return response;
+  }
+
+  private calculateIntentConfidence(intent: { type: string; subject: string; specifics: string[] }): number {
+    let confidence = 0.3; // Base confidence
+    
+    // Increase confidence based on intent clarity
+    if (intent.type !== 'general') confidence += 0.3;
+    if (intent.subject && intent.subject.length > 3) confidence += 0.2;
+    if (intent.specifics.length > 0) confidence += 0.2;
+    
+    return Math.min(confidence, 1.0);
   }
 
   private analyzeResearchIntent(input: string): { type: string; subject: string; specifics: string[] } {

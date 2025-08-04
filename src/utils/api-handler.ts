@@ -52,7 +52,8 @@ export class ApiHandler {
       console.log('[ApiHandler] Agent response:', {
         success: agentResponse.success,
         hasMessage: !!agentResponse.message,
-        messageLength: agentResponse.message?.length
+        messageLength: agentResponse.message?.length,
+        hasRouting: !!agentResponse.routing
       });
       
       const memoryUsed = memoryContext?.entries.map(e => e.id) || [];
@@ -63,7 +64,8 @@ export class ApiHandler {
         memoryUsed,
         logsSaved: agentResponse.memoryUpdated || false,
         timestamp: new Date().toISOString(),
-        sessionId
+        sessionId,
+        routing: agentResponse.routing // Pass through routing information
       };
     } catch (error) {
       const errorObj = error instanceof Error ? error : new Error('Agent processing failed');

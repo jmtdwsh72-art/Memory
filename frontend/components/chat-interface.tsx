@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MessageBubble, type Message } from './message-bubble';
 import { ChatErrorBoundary } from './error-boundary';
 import { cn } from '@/lib/utils';
+import { ASSISTANT_CONFIG } from '@/lib/assistant-identity.config';
 
 interface ChatInterfaceProps {
   messages: Message[];
@@ -100,9 +101,9 @@ export function ChatInterface({ messages, isLoading, className }: ChatInterfaceP
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
               >
-                <div className="h-16 w-16 sm:h-20 sm:w-20 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 via-primary/15 to-primary/10 flex items-center justify-center shadow-lg backdrop-blur-sm border border-primary/10">
+                <div className="h-16 w-16 sm:h-20 sm:w-20 mx-auto rounded-2xl memory-gradient flex items-center justify-center shadow-lg backdrop-blur-sm border border-white/20">
                   <motion.div 
-                    className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-gradient-to-br from-primary/30 to-primary/20 shadow-inner"
+                    className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-white/20 shadow-inner backdrop-blur-sm memory-float"
                     animate={{ 
                       scale: [1, 1.05, 1],
                       opacity: [0.8, 1, 0.8]
@@ -116,12 +117,12 @@ export function ChatInterface({ messages, isLoading, className }: ChatInterfaceP
                 </div>
               </motion.div>
               <motion.h3 
-                className="text-xl sm:text-2xl font-bold text-foreground mb-3"
+                className="text-xl sm:text-2xl font-bold memory-text-primary mb-3"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.3 }}
               >
-                Welcome to Memory Agent
+                {ASSISTANT_CONFIG.default.name}
               </motion.h3>
               <motion.p 
                 className="text-sm sm:text-base text-muted-foreground mb-8 leading-relaxed"

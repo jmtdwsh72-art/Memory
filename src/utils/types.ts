@@ -11,6 +11,12 @@ export interface AgentConfig {
   color: string;
   status: 'active' | 'inactive' | 'busy';
   voiceId?: string; // Optional ElevenLabs voice ID
+  
+  // Enhanced personalization fields
+  tagline?: string;
+  personality?: string[];
+  clarificationStyle?: string;
+  preferredCommunication?: string;
 }
 
 export interface AgentConfigExport {
@@ -73,4 +79,11 @@ export interface AgentResponse {
   message: string;
   data?: any;
   memoryUpdated?: boolean;
+  routing?: {
+    shouldRoute: boolean;
+    targetAgent: string;
+    confidence: number;
+    reasoning: string;
+    originalInput: string;
+  };
 }
