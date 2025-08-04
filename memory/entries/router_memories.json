@@ -176,5 +176,360 @@
       "connection",
       "hey"
     ]
+  },
+  {
+    "id": "memory_1754256918243_igpjkub2f",
+    "agentId": "router",
+    "userId": "74a442ee-21bc-4522-b375-5c03510be99a",
+    "type": "summary",
+    "input": "hi",
+    "summary": "Hey there! I'm your routing assistant. I can connect you to specialized agents for different tasks:",
+    "context": "Routed to: router",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T21:35:18.243Z",
+    "createdAt": "2025-08-03T21:35:18.243Z",
+    "tags": [
+      "tasks",
+      "research",
+      "agent",
+      "hey",
+      "there"
+    ]
+  },
+  {
+    "id": "memory_1754256961927_1xgn7hpsf",
+    "agentId": "router",
+    "userId": "376266b6-d445-4567-864b-319340a05298",
+    "type": "summary",
+    "input": "welcome",
+    "summary": "# 👋 Welcome to Memory Agent!",
+    "context": "Routed to: welcome",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T21:36:01.927Z",
+    "createdAt": "2025-08-03T21:36:01.927Z",
+    "tags": [
+      "welcome",
+      "agent",
+      "memory",
+      "your",
+      "there"
+    ]
+  },
+  {
+    "id": "memory_1754257048605_nmnfqt05s",
+    "agentId": "router",
+    "userId": "701ed17b-eadf-4eb3-9caf-d2a4e7249f16",
+    "type": "summary",
+    "input": "hi",
+    "summary": "I'm here to help you get started with Memory Agent! ",
+    "context": "Routed to: welcome",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T21:37:28.605Z",
+    "createdAt": "2025-08-03T21:37:28.605Z",
+    "tags": [
+      "memory",
+      "you",
+      "agents",
+      "here",
+      "help"
+    ]
+  },
+  {
+    "id": "memory_1754257402523_jecpnkute",
+    "agentId": "router",
+    "userId": "0155bc4e-69ba-4a85-a9b5-2b1baa30a28c",
+    "type": "summary",
+    "input": "hi",
+    "summary": "I'm here to help you get started with Memory Agent! ",
+    "context": "Routed to: welcome",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T21:43:22.523Z",
+    "createdAt": "2025-08-03T21:43:22.523Z",
+    "tags": [
+      "memory",
+      "you",
+      "agents",
+      "here",
+      "help"
+    ]
+  },
+  {
+    "id": "memory_1754258829574_uiwriz2t4",
+    "agentId": "router",
+    "userId": "550e8400-e29b-41d4-a716-446655440000",
+    "type": "summary",
+    "input": "hi",
+    "summary": "I'm here to help you get started with Memory Agent! ",
+    "context": "Routed to: welcome",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T22:07:09.574Z",
+    "createdAt": "2025-08-03T22:07:09.574Z",
+    "tags": [
+      "memory",
+      "you",
+      "agents",
+      "here",
+      "help"
+    ]
+  },
+  {
+    "id": "memory_1754259177656_udum1tdke",
+    "agentId": "router",
+    "userId": "c91dce8d-7534-4a04-afe6-6b04347bb12e",
+    "type": "summary",
+    "input": "welcome",
+    "summary": "# 👋 Welcome to Memory Agent!",
+    "context": "Routed to: welcome",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T22:12:57.656Z",
+    "createdAt": "2025-08-03T22:12:57.656Z",
+    "tags": [
+      "welcome",
+      "agent",
+      "memory",
+      "your",
+      "there"
+    ]
+  },
+  {
+    "id": "memory_1754259198993_fp4ftm4rn",
+    "agentId": "router",
+    "userId": "c91dce8d-7534-4a04-afe6-6b04347bb12e",
+    "type": "summary",
+    "input": "I want to learn python",
+    "summary": "Just tell me what you need help with, and I'll get you to the right specialist! Your request: \"I want to learn python\"",
+    "context": "Routed to: router",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T22:13:18.993Z",
+    "createdAt": "2025-08-03T22:13:18.993Z",
+    "tags": [
+      "research",
+      "want",
+      "learn",
+      "python",
+      "hey"
+    ]
+  },
+  {
+    "id": "memory_1754260694545_uzdmzrjod",
+    "agentId": "router",
+    "userId": "76b15098-e936-4ff4-a152-179a8bab5428",
+    "type": "summary",
+    "input": "I want to learn python",
+    "summary": "Just tell me what you need help with, and I'll get you to the right specialist! Your request: \"I want to learn python\"",
+    "context": "Routed to: router",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T22:38:14.545Z",
+    "createdAt": "2025-08-03T22:38:14.545Z",
+    "tags": [
+      "research",
+      "want",
+      "learn",
+      "python",
+      "hey"
+    ]
+  },
+  {
+    "id": "memory_1754260708573_kyf1i31km",
+    "agentId": "router",
+    "userId": "76b15098-e936-4ff4-a152-179a8bab5428",
+    "type": "summary",
+    "input": "Research Agent",
+    "summary": "Research Analysis for: \"Research Agent\"",
+    "context": "Routed to: research",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T22:38:28.573Z",
+    "createdAt": "2025-08-03T22:38:28.573Z",
+    "tags": [
+      "research",
+      "agent",
+      "analysis",
+      "analyzing",
+      "your"
+    ]
+  },
+  {
+    "id": "memory_1754261211236_l7oinfbh9",
+    "agentId": "router",
+    "userId": "c93d1f14-8dcb-4bb8-b3a7-db95970c9c3b",
+    "type": "summary",
+    "input": "I want to learn to code",
+    "summary": "Just tell me what you need help with, and I'll get you to the right specialist! Your request: \"I want to learn to code\"",
+    "context": "Routed to: router (confidence: 0.7)",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T22:46:51.236Z",
+    "createdAt": "2025-08-03T22:46:51.236Z",
+    "tags": [
+      "research",
+      "want",
+      "learn",
+      "code",
+      "hey"
+    ]
+  },
+  {
+    "id": "memory_1754261245960_zot4lq0fg",
+    "agentId": "router",
+    "userId": "c93d1f14-8dcb-4bb8-b3a7-db95970c9c3b",
+    "type": "summary",
+    "input": "I want to learn python",
+    "summary": "Research Analysis for: \"I want to learn python\"",
+    "context": "Routed to: research (confidence: 1)",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T22:47:25.960Z",
+    "createdAt": "2025-08-03T22:47:25.960Z",
+    "tags": [
+      "want",
+      "learn",
+      "you",
+      "research",
+      "python"
+    ]
+  },
+  {
+    "id": "memory_1754262070014_ibdrnf8v8",
+    "agentId": "router",
+    "userId": "33c5a6bf-817a-4f02-be2f-f0c5c6f26e6a",
+    "type": "summary",
+    "input": "I want to learn pyhon",
+    "summary": "Just tell me what you need help with, and I'll get you to the right specialist! Your request: \"I want to learn pyhon\"",
+    "context": "Routed to: router (confidence: 0.7)",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T23:01:10.014Z",
+    "createdAt": "2025-08-03T23:01:10.014Z",
+    "tags": [
+      "research",
+      "want",
+      "learn",
+      "pyhon",
+      "hey"
+    ]
+  },
+  {
+    "id": "memory_1754262083744_aons08ane",
+    "agentId": "router",
+    "userId": "33c5a6bf-817a-4f02-be2f-f0c5c6f26e6a",
+    "type": "summary",
+    "input": "I want to learn python",
+    "summary": "Absolutely! Here's a beginner-friendly roadmap to start learning learn python:",
+    "context": "Routed to: research (confidence: 1)",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T23:01:23.744Z",
+    "createdAt": "2025-08-03T23:01:23.744Z",
+    "tags": [
+      "you",
+      "want",
+      "learn",
+      "python",
+      "perfect"
+    ]
+  },
+  {
+    "id": "memory_1754262615724_1d79c35pq",
+    "agentId": "router",
+    "type": "log",
+    "input": "Research the latest developments in AI memory systems",
+    "summary": "I can help you with that! Your request \"Research the latest developments in AI memory systems\" could be handled in a few different ways:",
+    "context": "Routed to: research (confidence: 0.4)",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T23:10:15.724Z",
+    "createdAt": "2025-08-03T23:10:15.724Z",
+    "tags": [
+      "research",
+      "latest",
+      "developments",
+      "memory",
+      "systems"
+    ]
+  },
+  {
+    "id": "memory_1754263255735_dq8iyrv36",
+    "agentId": "router",
+    "type": "log",
+    "input": "Research the latest developments in AI memory systems",
+    "summary": "I can help you with that! Your request \"Research the latest developments in AI memory systems\" could be handled in a few different ways:",
+    "context": "Routed to: research (confidence: 0.4)",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T23:20:55.735Z",
+    "createdAt": "2025-08-03T23:20:55.735Z",
+    "tags": [
+      "research",
+      "latest",
+      "developments",
+      "memory",
+      "systems"
+    ]
+  },
+  {
+    "id": "memory_1754263399130_rota4uz7u",
+    "agentId": "router",
+    "type": "log",
+    "input": "Research the latest developments in AI memory systems",
+    "summary": "I can help you with that! Your request \"Research the latest developments in AI memory systems\" could be handled in a few different ways:",
+    "context": "Routed to: research (confidence: 0.4)",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T23:23:19.130Z",
+    "createdAt": "2025-08-03T23:23:19.130Z",
+    "tags": [
+      "research",
+      "latest",
+      "developments",
+      "memory",
+      "systems"
+    ]
+  },
+  {
+    "id": "7397c06b-8d6c-49c3-a6c2-b49589c71c96",
+    "agentId": "router",
+    "type": "log",
+    "input": "Research the latest developments in AI memory systems",
+    "summary": "I can help you with that! Your request \"Research the latest developments in AI memory systems\" could be handled in a few different ways:",
+    "context": "Routed to: research (confidence: 0.4)",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T23:24:29.472Z",
+    "createdAt": "2025-08-03T23:24:29.472Z",
+    "tags": [
+      "research",
+      "latest",
+      "developments",
+      "memory",
+      "systems"
+    ]
+  },
+  {
+    "id": "35841713-152d-4f04-974e-efd3cd859f54",
+    "agentId": "router",
+    "type": "log",
+    "input": "Research the latest developments in AI memory systems",
+    "summary": "I can help you with that! Your request \"Research the latest developments in AI memory systems\" could be handled in a few different ways:",
+    "context": "Routed to: research (confidence: 0.4)",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T23:24:58.051Z",
+    "createdAt": "2025-08-03T23:24:58.051Z",
+    "tags": [
+      "research",
+      "latest",
+      "developments",
+      "memory",
+      "systems"
+    ]
   }
 ]

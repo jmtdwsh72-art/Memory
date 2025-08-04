@@ -39,14 +39,16 @@ const MEMORY_TYPE_COLORS = {
   log: 'bg-blue-500',
   summary: 'bg-green-500',
   pattern: 'bg-purple-500',
-  correction: 'bg-red-500'
+  correction: 'bg-red-500',
+  goal: 'bg-orange-500'
 } as const;
 
 const MEMORY_TYPE_LABELS = {
   log: 'Log',
   summary: 'Summary',
   pattern: 'Pattern',
-  correction: 'Correction'
+  correction: 'Correction',
+  goal: 'Goal'
 } as const;
 
 function DeleteConfirmModal({ isOpen, onClose, onConfirm, memory }: DeleteConfirmModalProps) {

@@ -31,7 +31,7 @@ export interface MemoryEntry {
   id: string;
   agentId: string;
   userId?: string;
-  type: 'log' | 'summary' | 'pattern' | 'correction';
+  type: 'log' | 'summary' | 'pattern' | 'correction' | 'goal';
   input: string;
   summary: string;
   context?: string;
@@ -65,7 +65,7 @@ export interface MemorySearchOptions {
     start: Date;
     end: Date;
   };
-  types?: ('log' | 'summary' | 'pattern' | 'correction')[];
+  types?: ('log' | 'summary' | 'pattern' | 'correction' | 'goal')[];
 }
 
 export interface AgentResponse {

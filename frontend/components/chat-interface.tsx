@@ -87,28 +87,66 @@ export function ChatInterface({ messages, isLoading, className }: ChatInterfaceP
         )}
       >
         {messages.length === 0 ? (
-          <div className="flex h-full items-center justify-center">
+          <div className="flex h-full items-center justify-center px-4 sm:px-6">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-center max-w-md mx-auto px-6"
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="text-center max-w-sm sm:max-w-md mx-auto"
             >
-              <div className="mb-4">
-                <div className="h-16 w-16 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-                  <div className="h-8 w-8 rounded-full bg-primary/20" />
+              <motion.div 
+                className="mb-6"
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+              >
+                <div className="h-16 w-16 sm:h-20 sm:w-20 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 via-primary/15 to-primary/10 flex items-center justify-center shadow-lg backdrop-blur-sm border border-primary/10">
+                  <motion.div 
+                    className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-gradient-to-br from-primary/30 to-primary/20 shadow-inner"
+                    animate={{ 
+                      scale: [1, 1.05, 1],
+                      opacity: [0.8, 1, 0.8]
+                    }}
+                    transition={{ 
+                      duration: 3, 
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                  />
                 </div>
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                Welcome to KenKai Assistant
-              </h3>
-              <p className="text-sm text-muted-foreground mb-6">
+              </motion.div>
+              <motion.h3 
+                className="text-xl sm:text-2xl font-bold text-foreground mb-3"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
+                Welcome to Memory Agent
+              </motion.h3>
+              <motion.p 
+                className="text-sm sm:text-base text-muted-foreground mb-8 leading-relaxed"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+              >
                 Start a conversation with your AI assistant. Choose an agent from the sidebar 
                 and ask questions or request help with various tasks.
-              </p>
-              <div className="space-y-2 text-xs text-muted-foreground">
-                <p>💡 <strong>Tip:</strong> Use memory mode to maintain context across conversations</p>
-                <p>🎯 <strong>Try:</strong> "Research the latest AI developments" or "Help me plan a project"</p>
-              </div>
+              </motion.p>
+              <motion.div 
+                className="space-y-3 text-xs sm:text-sm text-muted-foreground"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+              >
+                <div className="flex items-center justify-center gap-2 p-3 rounded-xl bg-accent/30 backdrop-blur-sm border border-accent/20">
+                  <span className="text-lg">💡</span>
+                  <p><strong className="text-foreground">Tip:</strong> Use memory mode to maintain context across conversations</p>
+                </div>
+                <div className="flex items-center justify-center gap-2 p-3 rounded-xl bg-primary/5 backdrop-blur-sm border border-primary/10">
+                  <span className="text-lg">🎯</span>
+                  <p><strong className="text-foreground">Try:</strong> "Research the latest AI developments" or "Help me plan a project"</p>
+                </div>
+              </motion.div>
             </motion.div>
           </div>
         ) : (
@@ -169,39 +207,45 @@ export function ChatInterface({ messages, isLoading, className }: ChatInterfaceP
         )}
       </div>
 
-      {/* Scroll to bottom button */}
+      {/* Enhanced Scroll to Bottom Button */}
       <AnimatePresence>
         {!shouldAutoScroll && messages.length > 0 && (
           <motion.button
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 20 }}
+            whileHover={{ scale: 1.1, y: -2 }}
+            whileTap={{ scale: 0.9 }}
             onClick={() => {
               setShouldAutoScroll(true);
               scrollToBottom('smooth');
             }}
             className={cn(
-              'absolute bottom-4 right-4 z-10',
-              'h-10 w-10 rounded-full bg-primary text-primary-foreground',
-              'shadow-lg border border-primary/20',
+              'absolute bottom-4 right-4 sm:bottom-6 sm:right-6 z-10',
+              'h-12 w-12 sm:h-14 sm:w-14 rounded-2xl',
+              'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground',
+              'shadow-xl shadow-primary/25 border border-primary/20 backdrop-blur-sm',
               'flex items-center justify-center',
-              'hover:scale-105 transition-transform duration-200',
-              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2'
+              'transition-all duration-300 ease-out transform-gpu will-change-transform',
+              'hover:shadow-2xl hover:shadow-primary/30',
+              'focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background'
             )}
             aria-label="Scroll to bottom"
           >
-            <svg
-              width="16"
-              height="16"
+            <motion.svg
+              width="20"
+              height="20"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2"
+              strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
+              animate={{ y: [0, 2, 0] }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
             >
               <path d="m18 15-6-6-6 6" transform="rotate(180 12 12)" />
-            </svg>
+            </motion.svg>
           </motion.button>
         )}
       </AnimatePresence>

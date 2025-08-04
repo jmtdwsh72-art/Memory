@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS memory (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     agent_id TEXT NOT NULL,
     user_id TEXT DEFAULT NULL,
-    type TEXT NOT NULL CHECK (type IN ('log', 'summary', 'pattern', 'correction')),
+    type TEXT NOT NULL CHECK (type IN ('log', 'summary', 'pattern', 'correction', 'goal')),
     input TEXT NOT NULL,
     summary TEXT NOT NULL,
     context TEXT DEFAULT NULL,

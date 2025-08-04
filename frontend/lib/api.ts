@@ -44,7 +44,7 @@ export interface MemoryEntry {
   id: string;
   agentId: string;
   userId?: string;
-  type: 'log' | 'summary' | 'pattern' | 'correction';
+  type: 'log' | 'summary' | 'pattern' | 'correction' | 'goal';
   input: string;
   summary: string;
   context?: string;
@@ -96,6 +96,13 @@ export class ApiClient {
   ): Promise<AgentResponse> {
     const url = `${this.baseUrl}/agent/${agentId}${includeMemory ? '?memory=true' : ''}`;
     
+    console.log('[ApiClient] Sending request:', {
+      url,
+      agentId,
+      request,
+      includeMemory
+    });
+    
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -105,12 +112,16 @@ export class ApiClient {
         body: JSON.stringify(request),
       });
 
+      console.log('[ApiClient] Response status:', response.status);
+
       if (!response.ok) {
         const error: ApiError = await response.json().catch(() => ({ 
           error: 'Request failed', 
           code: 'UNKNOWN_ERROR', 
           timestamp: new Date().toISOString() 
         }));
+        
+        console.error('[ApiClient] Error response:', error);
         
         const errorObj = new Error(error.error || 'Request failed');
         
@@ -120,8 +131,13 @@ export class ApiClient {
         throw errorObj;
       }
 
-      return response.json();
+      const data = await response.json();
+      console.log('[ApiClient] Success response:', data);
+      
+      return data;
     } catch (error) {
+      console.error('[ApiClient] Request failed:', error);
+      
       // Report as agent error if it's an agent-specific request
       if (error instanceof Error) {
         await reportAgentError(error, agentId, request.input);

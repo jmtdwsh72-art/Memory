@@ -64,16 +64,17 @@ export function ChatInput({
   const canSend = message.trim().length > 0 && !disabled;
 
   return (
-    <div className={cn('border-t border-border bg-background/95 backdrop-blur', className)}>
-      <div className="mx-auto max-w-4xl p-3 md:p-4">
+    <div className={cn('bg-transparent', className)}>
+      <div className="mx-auto max-w-4xl p-4 md:p-6">
         <form onSubmit={handleSubmit} className="relative">
           <div
             className={cn(
-              'relative flex items-end gap-1 md:gap-2 rounded-2xl border transition-all duration-200',
-              'bg-background shadow-sm',
+              'relative flex items-end gap-2 md:gap-3 rounded-2xl border transition-all duration-300',
+              'bg-background/80 backdrop-blur-xl shadow-lg',
               isFocused
-                ? 'border-primary/50 shadow-md ring-1 ring-primary/20'
-                : 'border-border hover:border-primary/30'
+                ? 'border-primary/60 shadow-xl ring-2 ring-primary/20 scale-[1.02]'
+                : 'border-border/40 hover:border-primary/40 hover:shadow-lg',
+              'hover:scale-[1.01] transform-gpu will-change-transform'
             )}
           >
             {/* Text Input */}
@@ -90,12 +91,13 @@ export function ChatInput({
                 rows={1}
                 data-chat-input
                 className={cn(
-                  'w-full resize-none rounded-2xl bg-transparent px-3 md:px-4 py-3 pr-8 md:pr-12',
-                  'text-sm placeholder:text-muted-foreground',
-                  'focus:outline-none disabled:opacity-50',
-                  'max-h-24 md:max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-border'
+                  'w-full resize-none rounded-2xl bg-transparent px-4 md:px-5 py-4 pr-12 md:pr-16',
+                  'text-sm md:text-base placeholder:text-muted-foreground/70',
+                  'focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed',
+                  'max-h-32 md:max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-border/20 scrollbar-track-transparent',
+                  'transition-all duration-200 ease-out'
                 )}
-                style={{ minHeight: '44px' }}
+                style={{ minHeight: '52px' }}
               />
 
               {/* Character count */}
@@ -120,19 +122,21 @@ export function ChatInput({
               maxDuration={20}
             />
 
-            {/* Send Button */}
+            {/* Enhanced Send Button */}
             <motion.button
               type="submit"
               disabled={!canSend}
-              whileHover={canSend ? { scale: 1.05 } : {}}
-              whileTap={canSend ? { scale: 0.95 } : {}}
+              whileHover={canSend ? { scale: 1.08, rotate: 15 } : {}}
+              whileTap={canSend ? { scale: 0.92 } : {}}
               className={cn(
-                'flex h-9 w-9 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-full mr-0.5 md:mr-1',
-                'transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring',
-                'disabled:opacity-50 disabled:cursor-not-allowed transform-gpu will-change-transform',
+                'relative flex h-11 w-11 md:h-12 md:w-12 shrink-0 items-center justify-center rounded-full mr-1',
+                'transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+                'disabled:cursor-not-allowed transform-gpu will-change-transform',
+                'shadow-lg hover:shadow-xl',
                 canSend
-                  ? 'bg-primary text-primary-foreground shadow-md hover:bg-primary/90'
-                  : 'bg-muted text-muted-foreground'
+                  ? 'bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:from-primary/90 hover:to-primary/70'
+                  : 'bg-muted/50 text-muted-foreground/50 shadow-sm',
+                'backdrop-blur-sm border border-white/10'
               )}
               aria-label="Send message"
             >
@@ -162,11 +166,21 @@ export function ChatInput({
 
         </form>
 
-        {/* Shortcut hints */}
-        <div className="mt-2 hidden sm:flex items-center justify-center gap-4 text-xs text-muted-foreground">
-          <span>Press <kbd className="px-1 py-0.5 bg-muted rounded">Enter</kbd> to send</span>
-          <span>•</span>
-          <span><kbd className="px-1 py-0.5 bg-muted rounded">Shift + Enter</kbd> for new line</span>
+        {/* Enhanced Shortcut Hints */}
+        <div className="mt-3 hidden sm:flex items-center justify-center gap-6 text-xs text-muted-foreground/80">
+          <div className="flex items-center gap-2">
+            <kbd className="px-2 py-1 bg-muted/50 rounded-md font-mono text-xs border border-border/30 shadow-sm">
+              Enter
+            </kbd>
+            <span>to send</span>
+          </div>
+          <div className="w-px h-3 bg-border/30" />
+          <div className="flex items-center gap-2">
+            <kbd className="px-2 py-1 bg-muted/50 rounded-md font-mono text-xs border border-border/30 shadow-sm">
+              Shift + Enter
+            </kbd>
+            <span>new line</span>
+          </div>
         </div>
       </div>
     </div>

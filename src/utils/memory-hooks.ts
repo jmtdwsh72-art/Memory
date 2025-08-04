@@ -16,7 +16,9 @@ export interface AgentMemoryHookResult {
   saveMemory: (
     input: string,
     output: string,
-    context?: string
+    context?: string,
+    type?: 'log' | 'summary' | 'pattern' | 'correction' | 'goal',
+    tags?: string[]
   ) => Promise<MemoryEntry>;
 
   /**
@@ -84,10 +86,12 @@ export function useAgentMemory(
   const saveMemory = async (
     input: string,
     output: string,
-    context?: string
+    context?: string,
+    type: 'log' | 'summary' | 'pattern' | 'correction' | 'goal' = 'log',
+    tags?: string[]
   ): Promise<MemoryEntry> => {
     try {
-      return await memoryEngine.storeMemory(agentId, input, output, userId, context);
+      return await memoryEngine.storeMemory(agentId, input, output, userId, context, type, tags);
     } catch (error) {
       console.error(`[useAgentMemory:${agentId}] Failed to save memory:`, error);
       throw new Error(`Failed to save memory for agent ${agentId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -168,7 +172,7 @@ export const MemoryPresets = {
     limit: 8,
     minRelevance: 0.5,
     includePatterns: true,
-    types: ['summary', 'pattern', 'correction']
+    types: ['summary', 'pattern', 'correction', 'goal']
   },
 
   /**
@@ -178,7 +182,7 @@ export const MemoryPresets = {
     limit: 6,
     minRelevance: 0.4,
     includePatterns: true,
-    types: ['summary', 'pattern', 'correction']
+    types: ['summary', 'pattern', 'correction', 'goal']
   },
 
   /**
@@ -188,7 +192,7 @@ export const MemoryPresets = {
     limit: 5,
     minRelevance: 0.4,
     includePatterns: false,
-    types: ['summary', 'correction']
+    types: ['summary', 'correction', 'goal']
   },
 
   /**
@@ -198,7 +202,7 @@ export const MemoryPresets = {
     limit: 10,
     minRelevance: 0.3,
     includePatterns: true,
-    types: ['summary', 'pattern', 'correction']
+    types: ['summary', 'pattern', 'correction', 'goal']
   }
 } as const;
 
@@ -214,7 +218,7 @@ export function getMemoryPreset(agentType: string): MemorySearchOptions {
     limit: preset.limit,
     minRelevance: preset.minRelevance,
     includePatterns: preset.includePatterns,
-    types: [...preset.types] as ('log' | 'summary' | 'pattern' | 'correction')[]
+    types: [...preset.types] as ('log' | 'summary' | 'pattern' | 'correction' | 'goal')[]
   };
 }
 

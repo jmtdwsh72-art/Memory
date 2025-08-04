@@ -39,8 +39,21 @@ export class ApiHandler {
 
       const enrichedInput = this.buildEnrichedInput(request.input, memoryContext, request.context);
       
+      console.log('[ApiHandler] Processing request:', {
+        agentId,
+        input: request.input.substring(0, 100),
+        hasMemoryContext: !!memoryContext,
+        sessionId
+      });
+      
       // Pass sessionId as userId to the router for memory tracking
       const agentResponse = await this.router.processInput(enrichedInput, sessionId);
+      
+      console.log('[ApiHandler] Agent response:', {
+        success: agentResponse.success,
+        hasMessage: !!agentResponse.message,
+        messageLength: agentResponse.message?.length
+      });
       
       const memoryUsed = memoryContext?.entries.map(e => e.id) || [];
       

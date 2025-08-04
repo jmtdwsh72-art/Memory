@@ -2,17 +2,37 @@ import { supabase } from '../db/supabase';
 import { MemoryEntry, MemoryContext, MemoryPattern, MemorySearchOptions } from './types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import { logMemoryError } from './error-logger';
 
 export class MemoryEngine {
   private static instance: MemoryEngine;
   private memoryDir: string;
   private patterns: Map<string, MemoryPattern>;
+  private memoryMode: 'supabase' | 'file' | 'hybrid';
+  private supabaseAvailable: boolean = false;
 
   private constructor() {
     this.memoryDir = path.join(process.cwd(), 'memory');
     this.patterns = new Map();
+    this.memoryMode = (process.env.MEMORY_MODE as 'supabase' | 'file' | 'hybrid') || 'hybrid';
     this.loadPatterns();
+    this.testSupabaseConnection();
+  }
+
+  private async testSupabaseConnection(): Promise<void> {
+    try {
+      const { error } = await supabase.from('memory').select('count').limit(1);
+      this.supabaseAvailable = !error;
+      if (this.supabaseAvailable) {
+        console.log('✅ Supabase connection established');
+      } else {
+        console.log('⚠️  Supabase connection failed - using file-based storage');
+      }
+    } catch (error) {
+      this.supabaseAvailable = false;
+      console.log('⚠️  Supabase connection failed - using file-based storage');
+    }
   }
 
   public static getInstance(): MemoryEngine {
@@ -30,65 +50,88 @@ export class MemoryEngine {
     input: string,
     output: string,
     userId?: string,
-    context?: string
+    context?: string,
+    type: 'log' | 'summary' | 'pattern' | 'correction' | 'goal' = 'summary',
+    tags?: string[]
   ): Promise<MemoryEntry> {
     const summary = this.generateSummary(input, output);
-    const tags = this.extractTags(input, output);
+    const autoTags = this.extractTags(input, output);
+    const finalTags = tags || autoTags;
     
     const memoryEntry: MemoryEntry = {
-      id: `memory_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: crypto.randomUUID(),
       agentId,
       userId,
-      type: 'summary',
+      type,
       input,
       summary,
       context,
-      relevanceScore: 1.0,
+      relevanceScore: type === 'goal' ? 1.2 : type === 'correction' ? 1.2 : 1.0,
       frequency: 1,
       lastAccessed: new Date(),
       createdAt: new Date(),
-      tags
+      tags: finalTags
     };
 
-    try {
-      // Store in Supabase
-      const { error } = await supabase
-        .from('memory')
-        .insert({
-          id: memoryEntry.id,
-          agent_id: memoryEntry.agentId,
-          user_id: memoryEntry.userId,
-          type: memoryEntry.type,
-          input: memoryEntry.input,
-          summary: memoryEntry.summary,
-          context: memoryEntry.context,
-          relevance_score: memoryEntry.relevanceScore,
-          frequency: memoryEntry.frequency,
-          last_accessed: memoryEntry.lastAccessed.toISOString(),
-          created_at: memoryEntry.createdAt.toISOString(),
-          tags: memoryEntry.tags
-        });
+    // Determine storage method based on mode and availability
+    const shouldUseSupabase = (this.memoryMode === 'supabase' && this.supabaseAvailable) || 
+                              (this.memoryMode === 'hybrid' && this.supabaseAvailable);
+                              
+    if (shouldUseSupabase) {
+      try {
+        // Store in Supabase (using actual schema, let Supabase generate UUID)
+        const { data: insertData, error } = await supabase
+          .from('memory')
+          .insert({
+            agent_id: memoryEntry.agentId,
+            user_id: memoryEntry.userId,
+            type: memoryEntry.type,
+            input: memoryEntry.input,
+            output: output, // Use the raw output
+            summary: memoryEntry.summary,
+            relevance: memoryEntry.relevanceScore,
+            tags: memoryEntry.tags
+          })
+          .select();
 
-      if (error) {
-        console.error('Failed to store memory in Supabase:', error);
+        if (error) {
+          console.error('Failed to store memory in Supabase:', error);
+          if (this.memoryMode === 'supabase') {
+            throw new Error(`Supabase storage failed: ${error.message}`);
+          }
+          // Fall back to file storage for hybrid mode
+          await this.storeMemoryToFile(memoryEntry);
+        } else {
+          // Update the memory entry with the generated ID from Supabase
+          if (insertData && insertData[0]) {
+            memoryEntry.id = insertData[0].id;
+          }
+          console.log('✅ Memory stored in Supabase:', memoryEntry.id);
+          // Update patterns and detect learning opportunities
+          await this.analyzeAndUpdatePatterns(memoryEntry);
+        }
+      } catch (error) {
+        const errorObj = error instanceof Error ? error : new Error('Memory storage failed');
+        
+        // Log memory error with context
+        await logMemoryError(errorObj, {
+          agentId,
+          userId,
+          operation: 'memory_storage',
+          memoryId: memoryEntry.id
+        });
+        
+        if (this.memoryMode === 'supabase') {
+          throw errorObj; // Don't fall back in supabase-only mode
+        }
+        
+        console.error('Error storing memory, falling back to file:', error);
         await this.storeMemoryToFile(memoryEntry);
-      } else {
-        // Update patterns and detect learning opportunities
-        await this.analyzeAndUpdatePatterns(memoryEntry);
       }
-    } catch (error) {
-      const errorObj = error instanceof Error ? error : new Error('Memory storage failed');
-      
-      // Log memory error with context
-      await logMemoryError(errorObj, {
-        agentId,
-        userId,
-        operation: 'memory_storage',
-        memoryId: memoryEntry.id
-      });
-      
-      console.error('Error storing memory:', error);
+    } else {
+      // Store in file system
       await this.storeMemoryToFile(memoryEntry);
+      await this.analyzeAndUpdatePatterns(memoryEntry);
     }
 
     return memoryEntry;
@@ -111,80 +154,95 @@ export class MemoryEngine {
       types = ['summary', 'pattern', 'correction']
     } = options;
 
-    try {
-      // Build Supabase query
-      let supabaseQuery = supabase
-        .from('memory')
-        .select('*')
-        .eq('agent_id', agentId)
-        .in('type', types)
-        .gte('relevance_score', minRelevance)
-        .order('relevance_score', { ascending: false })
-        .order('last_accessed', { ascending: false });
+    // Determine storage method based on mode and availability
+    const shouldUseSupabase = (this.memoryMode === 'supabase' && this.supabaseAvailable) || 
+                              (this.memoryMode === 'hybrid' && this.supabaseAvailable);
+                              
+    if (shouldUseSupabase) {
+      try {
+        // Build Supabase query (using actual schema)
+        let supabaseQuery = supabase
+          .from('memory')
+          .select('*')
+          .eq('agent_id', agentId)
+          .in('type', types)
+          .gte('relevance', minRelevance)
+          .order('relevance', { ascending: false })
+          .order('created_at', { ascending: false });
 
-      if (userId) {
-        supabaseQuery = supabaseQuery.eq('user_id', userId);
-      }
+        if (userId) {
+          supabaseQuery = supabaseQuery.eq('user_id', userId);
+        }
 
-      if (timeRange) {
-        supabaseQuery = supabaseQuery
-          .gte('created_at', timeRange.start.toISOString())
-          .lte('created_at', timeRange.end.toISOString());
-      }
+        if (timeRange) {
+          supabaseQuery = supabaseQuery
+            .gte('created_at', timeRange.start.toISOString())
+            .lte('created_at', timeRange.end.toISOString());
+        }
 
-      const { data, error } = await supabaseQuery.limit(limit * 2); // Get extra for filtering
+        const { data, error } = await supabaseQuery.limit(limit * 2); // Get extra for filtering
 
-      if (error) {
-        console.error('Failed to recall memory from Supabase:', error);
+        if (error) {
+          console.error('Failed to recall memory from Supabase:', error);
+          if (this.memoryMode === 'supabase') {
+            throw new Error(`Supabase recall failed: ${error.message}`);
+          }
+          return await this.recallMemoryFromFile(agentId, query, options);
+        }
+
+        const memories: MemoryEntry[] = data.map(row => ({
+          id: row.id,
+          agentId: row.agent_id,
+          userId: row.user_id,
+          type: row.type,
+          input: row.input,
+          summary: row.summary,
+          context: row.output, // Use output as context
+          relevanceScore: row.relevance,
+          frequency: 1, // Default frequency
+          lastAccessed: new Date(row.created_at), // Use created_at as last accessed
+          createdAt: new Date(row.created_at),
+          tags: row.tags
+        }));
+
+        // Calculate semantic relevance scores
+        const scoredMemories = memories.map(memory => ({
+          ...memory,
+          relevanceScore: this.calculateRelevanceScore(query, memory)
+        }));
+
+        // Filter and sort by relevance
+        const relevantMemories = scoredMemories
+          .filter(memory => memory.relevanceScore >= minRelevance)
+          .sort((a, b) => b.relevanceScore - a.relevanceScore)
+          .slice(0, limit);
+
+        // Update last accessed timestamps
+        await this.updateLastAccessed(relevantMemories.map(m => m.id));
+
+        // Get patterns if requested
+        const patterns = includePatterns ? await this.getRelevantPatterns(query) : [];
+
+        const averageRelevance = relevantMemories.length > 0 
+          ? relevantMemories.reduce((sum, m) => sum + m.relevanceScore, 0) / relevantMemories.length
+          : 0;
+
+        return {
+          entries: relevantMemories,
+          totalMatches: memories.length,
+          averageRelevance,
+          patterns
+        };
+
+      } catch (error) {
+        console.error('Error recalling memory from Supabase:', error);
+        if (this.memoryMode === 'supabase') {
+          throw error; // Don't fall back in supabase-only mode
+        }
         return await this.recallMemoryFromFile(agentId, query, options);
       }
-
-      const memories: MemoryEntry[] = data.map(row => ({
-        id: row.id,
-        agentId: row.agent_id,
-        userId: row.user_id,
-        type: row.type,
-        input: row.input,
-        summary: row.summary,
-        context: row.context,
-        relevanceScore: row.relevance_score,
-        frequency: row.frequency,
-        lastAccessed: new Date(row.last_accessed),
-        createdAt: new Date(row.created_at),
-        tags: row.tags
-      }));
-
-      // Calculate semantic relevance scores
-      const scoredMemories = memories.map(memory => ({
-        ...memory,
-        relevanceScore: this.calculateRelevanceScore(query, memory)
-      }));
-
-      // Filter and sort by relevance
-      const relevantMemories = scoredMemories
-        .filter(memory => memory.relevanceScore >= minRelevance)
-        .sort((a, b) => b.relevanceScore - a.relevanceScore)
-        .slice(0, limit);
-
-      // Update last accessed timestamps
-      await this.updateLastAccessed(relevantMemories.map(m => m.id));
-
-      // Get patterns if requested
-      const patterns = includePatterns ? await this.getRelevantPatterns(query) : [];
-
-      const averageRelevance = relevantMemories.length > 0 
-        ? relevantMemories.reduce((sum, m) => sum + m.relevanceScore, 0) / relevantMemories.length
-        : 0;
-
-      return {
-        entries: relevantMemories,
-        totalMatches: memories.length,
-        averageRelevance,
-        patterns
-      };
-
-    } catch (error) {
-      console.error('Error recalling memory:', error);
+    } else {
+      // Use file-based storage
       return await this.recallMemoryFromFile(agentId, query, options);
     }
   }
@@ -200,7 +258,7 @@ export class MemoryEngine {
     userId?: string
   ): Promise<void> {
     const correctionEntry: MemoryEntry = {
-      id: `correction_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: crypto.randomUUID(),
       agentId,
       userId,
       type: 'correction',
@@ -763,12 +821,17 @@ export class MemoryEngine {
       const content = await fs.readFile(filepath, 'utf-8');
       const memories: MemoryEntry[] = JSON.parse(content);
       
-      const scoredMemories = memories.map(memory => ({
-        ...memory,
-        lastAccessed: new Date(memory.lastAccessed),
-        createdAt: new Date(memory.createdAt),
-        relevanceScore: this.calculateRelevanceScore(query, memory)
-      }));
+      const scoredMemories = memories.map(memory => {
+        const normalizedMemory = {
+          ...memory,
+          lastAccessed: new Date(memory.lastAccessed),
+          createdAt: new Date(memory.createdAt)
+        };
+        return {
+          ...normalizedMemory,
+          relevanceScore: this.calculateRelevanceScore(query, normalizedMemory)
+        };
+      });
 
       const relevantMemories = scoredMemories
         .filter(memory => memory.relevanceScore >= (options.minRelevance || 0.3))

@@ -36,42 +36,39 @@ export interface Database {
         Row: {
           id: string;
           agent_id: string;
+          session_id: string | null;
           user_id: string | null;
-          type: 'log' | 'summary' | 'pattern' | 'correction';
+          type: 'log' | 'summary' | 'pattern' | 'correction' | 'goal';
           input: string;
+          output: string | null;
           summary: string;
-          context: string | null;
-          relevance_score: number;
-          frequency: number;
-          last_accessed: string;
+          relevance: number;
           created_at: string;
           tags: string[] | null;
         };
         Insert: {
           id?: string;
           agent_id: string;
+          session_id?: string | null;
           user_id?: string | null;
-          type: 'log' | 'summary' | 'pattern' | 'correction';
+          type: 'log' | 'summary' | 'pattern' | 'correction' | 'goal';
           input: string;
+          output?: string | null;
           summary: string;
-          context?: string | null;
-          relevance_score?: number;
-          frequency?: number;
-          last_accessed?: string;
+          relevance?: number;
           created_at?: string;
           tags?: string[] | null;
         };
         Update: {
           id?: string;
           agent_id?: string;
+          session_id?: string | null;
           user_id?: string | null;
-          type?: 'log' | 'summary' | 'pattern' | 'correction';
+          type?: 'log' | 'summary' | 'pattern' | 'correction' | 'goal';
           input?: string;
+          output?: string | null;
           summary?: string;
-          context?: string | null;
-          relevance_score?: number;
-          frequency?: number;
-          last_accessed?: string;
+          relevance?: number;
           created_at?: string;
           tags?: string[] | null;
         };
@@ -109,10 +106,10 @@ class SupabaseConnection {
 
   private constructor() {
     const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+    const supabaseKey = process.env.SUPABASE_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Missing Supabase environment variables. Please check SUPABASE_URL and SUPABASE_ANON_KEY');
+      throw new Error('Missing Supabase environment variables. Please check SUPABASE_URL and SUPABASE_KEY');
     }
 
     this.client = createClient<Database>(supabaseUrl, supabaseKey);

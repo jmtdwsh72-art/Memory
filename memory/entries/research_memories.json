@@ -76,5 +76,65 @@
       "developments",
       "analysis"
     ]
+  },
+  {
+    "id": "memory_1754260708544_4shhl3uma",
+    "agentId": "research",
+    "userId": "76b15098-e936-4ff4-a152-179a8bab5428",
+    "type": "summary",
+    "input": "Research Agent",
+    "summary": "Research Analysis for: \"Research Agent\"",
+    "context": "Research analysis",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T22:38:28.544Z",
+    "createdAt": "2025-08-03T22:38:28.544Z",
+    "tags": [
+      "research",
+      "agent",
+      "analysis",
+      "analyzing",
+      "your"
+    ]
+  },
+  {
+    "id": "memory_1754261245880_8nsx7t1zn",
+    "agentId": "research",
+    "userId": "c93d1f14-8dcb-4bb8-b3a7-db95970c9c3b",
+    "type": "summary",
+    "input": "I want to learn python",
+    "summary": "Research Analysis for: \"I want to learn python\"",
+    "context": "Research analysis",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T22:47:25.880Z",
+    "createdAt": "2025-08-03T22:47:25.880Z",
+    "tags": [
+      "research",
+      "want",
+      "learn",
+      "python",
+      "analysis"
+    ]
+  },
+  {
+    "id": "memory_1754262083713_k5c431r6p",
+    "agentId": "research",
+    "userId": "33c5a6bf-817a-4f02-be2f-f0c5c6f26e6a",
+    "type": "summary",
+    "input": "I want to learn python",
+    "summary": "Absolutely! Here's a beginner-friendly roadmap to start learning learn python:",
+    "context": "research_goal: learning_learn_python",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-03T23:01:23.713Z",
+    "createdAt": "2025-08-03T23:01:23.713Z",
+    "tags": [
+      "learn",
+      "python",
+      "want",
+      "absolutely",
+      "here"
+    ]
   }
 ]

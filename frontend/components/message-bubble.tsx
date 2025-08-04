@@ -38,156 +38,195 @@ export function MessageBubble({ message, className }: MessageBubbleProps) {
   };
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
       className={cn(
-        'group flex gap-3 px-4 py-3 md:py-4',
-        'transition-all duration-200 ease-out',
-        'hover:bg-accent/30',
-        isUser ? 'flex-row-reverse' : 'flex-row',
+        'group relative flex gap-3 px-4 md:px-6 py-4 md:py-6',
+        'transition-all duration-300 ease-out',
+        'hover:bg-gradient-to-r',
+        isUser 
+          ? 'flex-row-reverse hover:from-primary/5 hover:to-primary/10' 
+          : 'flex-row hover:from-accent/30 hover:to-accent/10',
+        'rounded-xl border-l-4 border-transparent hover:border-primary/30',
         className
       )}
     >
-      {/* Avatar */}
+      {/* Enhanced Avatar */}
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.1 }}
+        transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
         className={cn(
-          'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-          'ring-2 ring-background transition-all duration-200',
-          'group-hover:ring-primary/20',
+          'flex h-10 w-10 md:h-12 md:w-12 shrink-0 items-center justify-center rounded-2xl',
+          'ring-2 ring-background transition-all duration-300 shadow-lg',
+          'group-hover:ring-4 group-hover:ring-primary/20 group-hover:shadow-xl',
+          'backdrop-blur-sm border border-white/10',
           isUser
-            ? 'bg-primary text-primary-foreground group-hover:bg-primary/90'
-            : 'bg-secondary text-secondary-foreground group-hover:bg-secondary/80'
+            ? 'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground hover:from-primary/90 hover:to-primary/70'
+            : 'bg-gradient-to-br from-secondary via-secondary/90 to-secondary/80 text-secondary-foreground hover:from-secondary/90 hover:to-secondary/70'
         )}
       >
-        {isUser ? (
-          <User className="h-4 w-4" />
-        ) : (
-          <Bot className="h-4 w-4" />
-        )}
+        <motion.div
+          whileHover={{ scale: 1.1, rotate: 5 }}
+          transition={{ type: "spring", stiffness: 400 }}
+        >
+          {isUser ? (
+            <User className="h-5 w-5 md:h-6 md:w-6" />
+          ) : (
+            <Bot className="h-5 w-5 md:h-6 md:w-6" />
+          )}
+        </motion.div>
       </motion.div>
 
-      {/* Message Content */}
+      {/* Enhanced Message Content */}
       <div
         className={cn(
-          'min-w-0 flex-1 space-y-2',
+          'min-w-0 flex-1 space-y-3',
           isUser ? 'text-right' : 'text-left'
         )}
       >
-        {/* Header */}
-        <div
+        {/* Enhanced Header */}
+        <motion.div
+          initial={{ opacity: 0, x: isUser ? 10 : -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
           className={cn(
-            'flex items-center gap-2 text-xs text-muted-foreground',
+            'flex items-center gap-2 text-xs font-medium text-muted-foreground/80',
             isUser ? 'justify-end' : 'justify-start'
           )}
         >
-          <span className="font-medium">
+          <motion.span 
+            className="text-foreground/90 font-semibold"
+            whileHover={{ scale: 1.05 }}
+          >
             {isUser ? 'You' : message.agentName || 'Assistant'}
-          </span>
-          <span>•</span>
-          <span>{formatTimestamp(message.timestamp)}</span>
+          </motion.span>
+          <span className="text-muted-foreground/50">•</span>
+          <span className="text-muted-foreground/70">{formatTimestamp(message.timestamp)}</span>
           {message.memoryUsed && message.memoryUsed.length > 0 && (
             <>
-              <span>•</span>
-              <span className="text-primary">
+              <span className="text-muted-foreground/50">•</span>
+              <motion.span 
+                className="text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full text-xs"
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.3 }}
+              >
                 {message.memoryUsed.length} memory
-              </span>
+              </motion.span>
             </>
           )}
-        </div>
+        </motion.div>
 
-        {/* Bubble */}
+        {/* Premium Message Bubble */}
         <motion.div
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.15 }}
+          transition={{ delay: 0.15, type: "spring", stiffness: 200 }}
           className={cn(
-            'relative rounded-2xl px-4 py-3 text-sm',
-            'border shadow-sm transition-all duration-300 ease-out',
-            'group-hover:shadow-lg group-hover:scale-[1.01]',
+            'relative rounded-2xl px-4 md:px-6 py-4 md:py-5 text-sm md:text-base leading-relaxed',
+            'border shadow-lg transition-all duration-300 ease-out backdrop-blur-sm',
+            'group-hover:shadow-xl group-hover:scale-[1.02] group-hover:-translate-y-1',
             'transform-gpu will-change-transform',
             isUser
-              ? 'bg-primary text-primary-foreground border-primary/20 ml-8 md:ml-12'
-              : 'bg-card text-card-foreground border-border mr-8 md:mr-12 group-hover:border-primary/20'
+              ? 'bg-gradient-to-br from-primary via-primary/95 to-primary/90 text-primary-foreground border-primary/30 ml-6 md:ml-12 shadow-primary/20'
+              : 'bg-gradient-to-br from-card via-card/95 to-card/90 text-card-foreground border-border/50 mr-6 md:mr-12 group-hover:border-primary/30 shadow-black/5'
           )}
         >
           {message.isLoading ? (
-            <div className="flex items-center gap-3">
-              <div className="flex gap-1">
+            <div className="flex items-center gap-4">
+              <div className="flex gap-1.5">
                 <motion.div 
-                  className="h-2 w-2 rounded-full bg-current"
-                  animate={{ opacity: [0.3, 1, 0.3] }}
-                  transition={{ duration: 1.2, repeat: Infinity, delay: 0 }}
+                  className="h-3 w-3 rounded-full bg-current shadow-lg"
+                  animate={{ 
+                    opacity: [0.3, 1, 0.3],
+                    scale: [0.8, 1.2, 0.8],
+                    y: [0, -4, 0]
+                  }}
+                  transition={{ duration: 1.4, repeat: Infinity, delay: 0 }}
                 />
                 <motion.div 
-                  className="h-2 w-2 rounded-full bg-current"
-                  animate={{ opacity: [0.3, 1, 0.3] }}
-                  transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }}
+                  className="h-3 w-3 rounded-full bg-current shadow-lg"
+                  animate={{ 
+                    opacity: [0.3, 1, 0.3],
+                    scale: [0.8, 1.2, 0.8],
+                    y: [0, -4, 0]
+                  }}
+                  transition={{ duration: 1.4, repeat: Infinity, delay: 0.2 }}
                 />
                 <motion.div 
-                  className="h-2 w-2 rounded-full bg-current"
-                  animate={{ opacity: [0.3, 1, 0.3] }}
-                  transition={{ duration: 1.2, repeat: Infinity, delay: 0.4 }}
+                  className="h-3 w-3 rounded-full bg-current shadow-lg"
+                  animate={{ 
+                    opacity: [0.3, 1, 0.3],
+                    scale: [0.8, 1.2, 0.8],
+                    y: [0, -4, 0]
+                  }}
+                  transition={{ duration: 1.4, repeat: Infinity, delay: 0.4 }}
                 />
               </div>
               <motion.span 
-                className="text-xs opacity-70"
-                animate={{ opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 2, repeat: Infinity }}
+                className="text-sm font-medium opacity-80"
+                animate={{ opacity: [0.6, 1, 0.6] }}
+                transition={{ duration: 2.5, repeat: Infinity }}
               >
                 Thinking...
               </motion.span>
             </div>
           ) : (
             <motion.div 
-              className="whitespace-pre-wrap break-words"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
+              className="whitespace-pre-wrap break-words font-medium"
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25, duration: 0.3 }}
             >
               {message.content}
             </motion.div>
           )}
 
-          {/* Action Buttons */}
+          {/* Enhanced Action Buttons */}
           {!message.isLoading && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 0, scale: 1 }}
+              initial={{ opacity: 0, scale: 0.8, y: 10 }}
+              animate={{ opacity: 0, scale: 1, y: 0 }}
               whileHover={{ opacity: 1 }}
               className={cn(
-                'absolute -top-2 flex gap-1',
+                'absolute -top-3 flex gap-1.5',
                 'transition-all duration-300 ease-out',
                 'group-hover:opacity-100',
-                isUser ? '-left-2' : '-right-2'
+                isUser ? '-left-3' : '-right-3'
               )}
             >
               {/* Voice Player for Agent Messages */}
               {!isUser && (
                 <motion.div
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.15, y: -2 }}
+                  whileTap={{ scale: 0.9 }}
+                  transition={{ type: "spring", stiffness: 400 }}
                 >
                   <VoicePlayer
                     text={message.content}
                     agentId={message.agentId}
-                    className="h-6 w-6 rounded-full bg-background border border-border hover:border-primary/30 hover:shadow-md"
+                    className="h-8 w-8 rounded-xl bg-background/95 backdrop-blur-sm border border-border/50 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-200"
                   />
                 </motion.div>
               )}
               
-              {/* Copy Button */}
+              {/* Enhanced Copy Button */}
               <motion.button
                 onClick={handleCopy}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.15, y: -2 }}
+                whileTap={{ scale: 0.9 }}
+                transition={{ type: "spring", stiffness: 400 }}
                 className={cn(
-                  'h-6 w-6 rounded-full bg-background border border-border',
+                  'h-8 w-8 rounded-xl bg-background/95 backdrop-blur-sm border border-border/50',
                   'flex items-center justify-center text-muted-foreground',
-                  'hover:bg-accent hover:text-accent-foreground hover:border-primary/30',
-                  'transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
-                  'transform-gpu will-change-transform'
+                  'hover:bg-accent/80 hover:text-accent-foreground hover:border-primary/40',
+                  'hover:shadow-lg hover:shadow-primary/10',
+                  'transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-2',
+                  'transform-gpu will-change-transform',
+                  copied && 'bg-green-500/10 border-green-500/30 text-green-600'
                 )}
                 aria-label={copied ? 'Message copied' : 'Copy message to clipboard'}
                 tabIndex={0}
@@ -196,22 +235,22 @@ export function MessageBubble({ message, className }: MessageBubbleProps) {
                   {copied ? (
                     <motion.div
                       key="check"
-                      initial={{ scale: 0.5, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.5, opacity: 0 }}
-                      transition={{ duration: 0.15 }}
+                      initial={{ scale: 0.5, opacity: 0, rotate: -90 }}
+                      animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                      exit={{ scale: 0.5, opacity: 0, rotate: 90 }}
+                      transition={{ duration: 0.2, type: "spring" }}
                     >
-                      <Check className="h-3 w-3 text-green-500" />
+                      <Check className="h-4 w-4 text-green-500" />
                     </motion.div>
                   ) : (
                     <motion.div
                       key="copy"
-                      initial={{ scale: 0.5, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.5, opacity: 0 }}
-                      transition={{ duration: 0.15 }}
+                      initial={{ scale: 0.5, opacity: 0, rotate: -90 }}
+                      animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                      exit={{ scale: 0.5, opacity: 0, rotate: 90 }}
+                      transition={{ duration: 0.2, type: "spring" }}
                     >
-                      <Copy className="h-3 w-3" />
+                      <Copy className="h-4 w-4" />
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -220,6 +259,6 @@ export function MessageBubble({ message, className }: MessageBubbleProps) {
           )}
         </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 }

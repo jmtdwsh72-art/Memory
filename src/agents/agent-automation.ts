@@ -24,9 +24,18 @@ export class AutomationAgent {
       
       const response = await this.generateResponse(input, contextString);
       
-      // Store interaction using centralized utility
+      // Store interaction using centralized utility with goal tracking
       const taskType = this.identifyTaskType(input);
-      await memory.saveMemory(input, response, `Task type: ${taskType}`);
+      const goalTag = this.extractGoalTag(input, taskType);
+      
+      // Save as goal type with appropriate tags
+      await memory.saveMemory(
+        input, 
+        response, 
+        `automation_goal: ${goalTag}`,
+        'goal',
+        ['automation', taskType, 'process_optimization', 'automation_goal']
+      );
 
       await this.logInteraction({
         id: this.generateId(),
@@ -347,6 +356,13 @@ What's bugging you today that we can fix together?`;
     const words = input.toLowerCase().split(/\s+/);
     const stopWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'i', 'me', 'my', 'we', 'us', 'you', 'your'];
     return words.filter(word => word.length > 3 && !stopWords.includes(word)).slice(0, 4);
+  }
+
+  private extractGoalTag(input: string, taskType: string): string {
+    // Extract subject for goal tracking
+    const subject = input.replace(/^(automate|build|create|script|optimize|streamline|help me with|i need|can you)/i, '').trim();
+    const cleanSubject = subject.split(/\s+/).slice(0, 3).join('_').toLowerCase();
+    return cleanSubject || taskType;
   }
 
 

@@ -1,4 +1,4 @@
-import { AgentHandler } from '../types/agent-types';
+import { AgentHandler } from '../utils/types';
 import { welcomeAgentConfig } from './agent-welcome.config';
 
 export class WelcomeAgent implements AgentHandler {

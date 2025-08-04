@@ -25,6 +25,7 @@ export const COMMAND_IDS = {
   // Navigation
   FOCUS_CHAT_INPUT: 'focus-chat-input',
   TOGGLE_SIDEBAR: 'toggle-sidebar',
+  GO_TO_DASHBOARD: 'go-to-dashboard',
 } as const;
 
 export interface CommandFactoryProps {
@@ -40,6 +41,9 @@ export interface CommandFactoryProps {
   // Chat functions
   onClearChat?: () => void;
   onToggleSidebar?: () => void;
+  
+  // Navigation functions
+  onNavigateToDashboard?: () => void;
   
   // Theme functions
   onToggleTheme?: () => void;
@@ -67,6 +71,7 @@ export function createCommands(props: CommandFactoryProps): Command[] {
     onOpenSettings,
     onClearChat,
     onToggleSidebar,
+    onNavigateToDashboard,
     onToggleTheme,
     onToggleVoiceMute,
     isVoiceMuted,
@@ -235,6 +240,14 @@ export function createCommands(props: CommandFactoryProps): Command[] {
       group: 'navigation',
       shortcut: '⌘+B',
       action: () => onToggleSidebar?.()
+    },
+    {
+      id: COMMAND_IDS.GO_TO_DASHBOARD,
+      label: 'Go to Dashboard',
+      description: 'Navigate to the main dashboard',
+      group: 'navigation',
+      shortcut: '⌘+⇧+D',
+      action: () => onNavigateToDashboard?.()
     }
   ];
 

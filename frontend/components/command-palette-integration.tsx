@@ -21,6 +21,7 @@ interface CommandPaletteIntegrationProps {
   onOpenSettings: () => void;
   onClearChat: () => void;
   onToggleSidebar: () => void;
+  onNavigateToDashboard?: () => void;
   
   // Voice state
   isVoiceMuted?: boolean;
@@ -84,6 +85,9 @@ export function CommandPaletteIntegration(props: CommandPaletteIntegrationProps)
     // Chat functions
     onClearChat: props.onClearChat,
     onToggleSidebar: props.onToggleSidebar,
+    
+    // Navigation functions
+    onNavigateToDashboard: props.onNavigateToDashboard,
     
     // Theme functions
     onToggleTheme: handleToggleTheme,
