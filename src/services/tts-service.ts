@@ -144,10 +144,11 @@ export class TTSService {
   // Voice presets for different agent types
   getVoiceForAgent(agentId: string): string {
     const voiceMap: Record<string, string> = {
-      'research': '21m00Tcm4TlvDq8ikWAM', // Rachel - professional
-      'creative': 'AZnzlk1XvdvUeBnXmlld', // Domi - energetic
+      'research': 'EXAVITQu4vr4xnSDxMaL', // Rachel - professional
+      'creative': 'AZnzlk1XvdvUeBnXmlld', // Domi - energetic  
       'automation': 'VR6AewLTigWG4xSOukaG', // Arnold - clear
-      'router': '21m00Tcm4TlvDq8ikWAM' // Rachel - default
+      'router': 'EXAVITQu4vr4xnSDxMaL', // Rachel - default
+      'welcome': 'EXAVITQu4vr4xnSDxMaL' // Rachel - welcoming
     };
     
     return voiceMap[agentId] || this.defaultVoiceId;

@@ -14,6 +14,13 @@ export interface AgentResponse {
   logsSaved: boolean;
   timestamp: string;
   sessionId?: string;
+  routing?: {
+    shouldRedirect: boolean;
+    targetAgent: string;
+    confidence: number;
+    reasoning: string;
+    originalMessage: string;
+  };
 }
 
 export interface ApiError {

@@ -46,8 +46,8 @@ export class ApiHandler {
         sessionId
       });
       
-      // Pass sessionId as userId to the router for memory tracking
-      const agentResponse = await this.router.processInput(enrichedInput, sessionId);
+      // Pass sessionId as userId and agentId as currentAgent to the router for memory tracking
+      const agentResponse = await this.router.processInput(enrichedInput, sessionId, agentId);
       
       console.log('[ApiHandler] Agent response:', {
         success: agentResponse.success,
@@ -60,7 +60,7 @@ export class ApiHandler {
       
       return {
         reply: agentResponse.message,
-        agentName: this.determineAgentName(agentId),
+        agentName: agentResponse.agentName || this.determineAgentName(agentId),
         memoryUsed,
         logsSaved: agentResponse.memoryUpdated || false,
         timestamp: new Date().toISOString(),

@@ -4,6 +4,10 @@ import { getAgentConfig } from '../utils/config-utils';
 import { useAgentMemoryWithPreset } from '../utils/memory-hooks';
 import { ConversationalBehavior } from '../utils/conversational-behavior';
 import { ConversationalHandler } from '../utils/conversational-handler';
+import { ContextInjector } from '../utils/context-injection';
+import { getConsultingPatterns } from '../utils/consulting-patterns';
+import { getKnowledgeForInput, formatKnowledgeSection, detectDomains } from '../utils/knowledge-loader';
+import { performWebSearch, formatSearchResults, isSearchAvailable } from '../utils/web-search';
 
 export class ResearchAgent {
   private config: AgentConfig;
@@ -17,7 +21,7 @@ export class ResearchAgent {
     this.conversational = new ConversationalBehavior();
   }
 
-  async processInput(input: string, userId?: string): Promise<AgentResponse> {
+  async processInput(input: string, userId?: string, routingMetadata?: any): Promise<AgentResponse> {
     try {
       // Use centralized memory utilities with research preset
       const memory = useAgentMemoryWithPreset(this.config.id, 'research', userId);
@@ -26,35 +30,35 @@ export class ResearchAgent {
       const memoryContext = await memory.recallWithPreset(input);
       const contextString = memory.buildContext(memoryContext);
       
-      // Check if we should ask clarifying questions
-      const intent = this.analyzeResearchIntent(input);
-      const hasRecentInteraction = await this.conversational.checkRecentInteraction(
-        this.config.id,
-        userId
-      );
+      // Get consulting patterns for research agent
+      const consulting = getConsultingPatterns('research');
       
-      // Calculate confidence based on intent analysis
+      // Generate context injection
+      const injectedContext = ContextInjector.injectMemoryAwareness({
+        agentId: this.config.id,
+        input,
+        memoryContext,
+        routingMetadata,
+        userId
+      });
+      
+      // Analyze research intent and calculate confidence
+      const intent = this.analyzeResearchIntent(input);
       const confidence = this.calculateIntentConfidence(intent);
       
-      // Determine if we should use conversational approach
-      const shouldClarify = !hasRecentInteraction && 
-        this.conversational.shouldAskClarification(input, confidence, userId);
-      
-      let response: string;
-      
-      if (shouldClarify) {
-        // Generate conversational response with clarifying questions
-        const acknowledgment = this.conversational.generateAcknowledgment('research', intent);
-        const questions = this.conversational.generateClarifyingQuestions('research', input, intent);
-        response = this.conversational.formatConversationalResponse(acknowledgment, questions);
-      } else {
-        // Generate full response
-        response = await this.generateResponse(input, contextString);
-      }
+      // Build comprehensive research response
+      const response = await this.buildConsultingResponse(input, {
+        confidence,
+        consulting,
+        injectedContext,
+        memoryContext,
+        contextString,
+        intent,
+        routingMetadata
+      });
       
       // Store interaction using centralized utility with goal tracking
-      const storedIntent = this.analyzeResearchIntent(input);
-      const goalTag = `${storedIntent.type}_${storedIntent.subject.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).slice(0, 3).join('_').toLowerCase()}`;
+      const goalTag = `${intent.type}_${intent.subject.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).slice(0, 3).join('_').toLowerCase()}`;
       
       // Save as goal type with appropriate tags
       await memory.saveMemory(
@@ -62,7 +66,7 @@ export class ResearchAgent {
         response, 
         `research_goal: ${goalTag}`,
         'goal',
-        ['research', storedIntent.type, storedIntent.subject.toLowerCase(), 'learning_goal']
+        ['research', intent.type, intent.subject.toLowerCase(), 'learning_goal']
       );
 
       await this.logInteraction({
@@ -77,7 +81,14 @@ export class ResearchAgent {
       return {
         success: true,
         message: response,
-        memoryUpdated: true
+        memoryUpdated: true,
+        metadata: {
+          agentId: this.config.id,
+          confidence,
+          hasMemoryContext: memoryContext.entries.length > 0,
+          intentType: intent.type,
+          consultingEnhanced: true
+        }
       };
     } catch (error) {
       return {
@@ -118,13 +129,118 @@ export class ResearchAgent {
     if (memoryContext && memoryContext.trim()) {
       response += `\n\n📚 **Building on our previous research:**\n${memoryContext}`;
     }
-
-    // Add memory tag for goal tracking
-    if (intent.subject) {
-      response += `\n\n*Saving this as a ${intent.type} goal: ${intent.subject}*`;
-    }
     
     return response;
+  }
+
+  private async buildConsultingResponse(input: string, options: {
+    confidence: number;
+    consulting: any;
+    injectedContext: any;
+    memoryContext: any;
+    contextString: string;
+    intent: any;
+    routingMetadata?: any;
+  }): Promise<string> {
+    const { confidence, consulting, injectedContext, memoryContext, contextString, intent, routingMetadata } = options;
+    const sections: string[] = [];
+
+    // 1. Contextual Introduction (Research Agent Voice)
+    const suppressIntro = routingMetadata?.suppressIntro || routingMetadata?.stayInThread;
+    if (!suppressIntro) {
+      if (injectedContext.personalizedIntro) {
+        sections.push(`🔬 **Research Analysis**: ${injectedContext.personalizedIntro}`);
+      } else {
+        sections.push(`🔬 **Research Analysis**: I'll help you develop a structured approach to this investigation.`);
+      }
+    }
+
+    // Add memory context if relevant
+    if (injectedContext.memoryAwareness) {
+      sections.push(injectedContext.memoryAwareness);
+    }
+
+    // 2. Clarifying Questions (for medium confidence)
+    if (confidence >= 0.3 && confidence < 0.7) {
+      const questions = consulting.getClarifyingQuestions(input);
+      if (questions.length > 0) {
+        sections.push(`## 🤔 Research Clarification\n\nTo provide the most valuable analysis, I'd like to understand:\n\n${questions.map((q: string, i: number) => `${i + 1}. ${q}`).join('\n')}`);
+      }
+    }
+
+    // 3. Structured Framework
+    const framework = consulting.getStructuredFramework(input);
+    sections.push(framework);
+
+    // 4. Core Research Response (if high confidence)
+    if (confidence >= 0.7) {
+      const coreResponse = await this.generateResponse(input, contextString);
+      // Extract just the analysis content, not the memory context
+      const cleanResponse = coreResponse.split('\n\n📚 **Building on our previous research:**')[0];
+      sections.push(`## 📊 Analysis\n\n${cleanResponse}`);
+    }
+
+    // 5. Memory Integration (if available)
+    if (memoryContext.entries.length > 0 && contextString.trim()) {
+      const memoryInsights = this.formatMemoryInsights(memoryContext.entries.slice(0, 2));
+      if (memoryInsights) {
+        sections.push(`## 📚 Relevant Context\n\n${memoryInsights}`);
+      }
+    }
+
+    // 6. Domain Knowledge Enhancement
+    const knowledgeModules = await getKnowledgeForInput(input);
+    if (knowledgeModules.length > 0) {
+      const knowledgeSection = formatKnowledgeSection(knowledgeModules);
+      if (knowledgeSection) {
+        sections.push(knowledgeSection);
+      }
+    }
+
+    // 7. Web Search Enhancement (when appropriate)
+    try {
+      const searchAvailable = await isSearchAvailable();
+      if (searchAvailable) {
+        const searchResponse = await performWebSearch(input, 'research');
+        if (searchResponse && searchResponse.results.length > 0) {
+          const searchSection = formatSearchResults(searchResponse);
+          if (searchSection) {
+            sections.push(searchSection);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Web search failed for research agent:', error);
+      // Continue without search results - graceful degradation
+    }
+
+    // 8. Suggested Next Steps
+    const nextSteps = consulting.getSuggestedNextSteps(input);
+    if (nextSteps.length > 0) {
+      sections.push(`## 🎯 Recommended Next Steps\n\n${nextSteps.map((step: string, i: number) => `${i + 1}. **${step}**`).join('\n')}`);
+    }
+
+    // 9. Research Agent Closing (Professional & Collaborative)
+    const closingOptions = [
+      "I'm ready to dive deeper into any of these areas that interest you most.",
+      "Would you like me to elaborate on any specific aspect of this research framework?",
+      "I can provide more detailed analysis on whichever angle serves your goals best."
+    ];
+    const closing = closingOptions[Math.floor(Math.random() * closingOptions.length)];
+    sections.push(`---\n\n💡 ${closing}`);
+
+    return sections.join('\n\n');
+  }
+
+  private formatMemoryInsights(entries: any[]): string {
+    if (!entries || entries.length === 0) return '';
+    
+    return entries.map(entry => {
+      const cleanSummary = entry.summary
+        .replace(/^(research_goal:|ROUTING_HANDOFF:|Agent:)/i, '')
+        .trim();
+      return `• ${cleanSummary}`;
+    }).join('\n');
   }
 
   private calculateIntentConfidence(intent: { type: string; subject: string; specifics: string[] }): number {

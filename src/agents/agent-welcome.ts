@@ -1,11 +1,23 @@
-import { AgentHandler } from '../utils/types';
-import { welcomeAgentConfig } from './agent-welcome.config';
+import { AgentConfig, AgentMessage, AgentResponse } from '../utils/types';
+import { MemoryManager } from '../utils/memory-manager';
+import { getAgentConfig } from '../utils/config-utils';
+import { useAgentMemoryWithPreset } from '../utils/memory-hooks';
+import { ContextInjector } from '../utils/context-injection';
 
-export class WelcomeAgent implements AgentHandler {
-  private config = welcomeAgentConfig;
+export class WelcomeAgent {
+  private config: AgentConfig;
+  private memoryManager: MemoryManager;
 
-  async handle(input: string, context: any = {}): Promise<any> {
-    const { sessionId, isFirstMessage = false } = context;
+  constructor() {
+    // Load validated configuration using centralized utility
+    this.config = getAgentConfig('welcome');
+    this.memoryManager = new MemoryManager();
+  }
+
+  async handle(input: string, context?: any): Promise<AgentResponse> {
+    const userId = context?.sessionId;
+    const routingMetadata = context?.routingMetadata;
+    const isFirstMessage = !userId || input.toLowerCase().match(/^(hi|hello|hey)$/);
 
     // Welcome sequence for first-time users
     if (isFirstMessage || input.toLowerCase().includes('start') || input.toLowerCase().includes('welcome')) {
@@ -33,7 +45,12 @@ export class WelcomeAgent implements AgentHandler {
     return this.generateHelpfulResponse(input);
   }
 
-  private generateWelcomeSequence(): any {
+  // Backward compatibility method
+  async processInput(input: string, userId?: string, routingMetadata?: any): Promise<AgentResponse> {
+    return this.handle(input, { sessionId: userId, routingMetadata });
+  }
+
+  private generateWelcomeSequence(): AgentResponse {
     const welcomeMessage = `# 👋 Welcome to Memory Agent!
 
 Hi there! I'm your **Welcome Agent**, and I'm excited to show you around! 
@@ -65,18 +82,23 @@ Ready to explore? You can:
 What would you like to know more about?`;
 
     return {
-      reply: welcomeMessage,
-      agentName: this.config.name,
-      timestamp: new Date().toISOString(),
-      memoryUsed: [],
-      isOnboarding: true,
-      showExploreButton: false
+      success: true,
+      message: welcomeMessage,
+      memoryUpdated: false,
+      metadata: {
+        agentName: this.config.name,
+        timestamp: new Date().toISOString(),
+        memoryUsed: [],
+        isOnboarding: true,
+        showExploreButton: false
+      }
     };
   }
 
-  private explainMemoryFeatures(): any {
+  private explainMemoryFeatures(): AgentResponse {
     return {
-      reply: `## 🧠 **Memory Features Explained**
+      success: true,
+      message: `## 🧠 **Memory Features Explained**
 
 Memory Agent's memory system is what sets it apart:
 
@@ -102,16 +124,20 @@ Click the **Brain icon** in the top bar to see:
 - Memory can be cleared anytime
 
 Want to see the **Memory Viewer** in action, or learn about something else?`,
-      agentName: this.config.name,
-      timestamp: new Date().toISOString(),
-      memoryUsed: [],
-      isOnboarding: true
+      memoryUpdated: false,
+      metadata: {
+        agentName: this.config.name,
+        timestamp: new Date().toISOString(),
+        memoryUsed: [],
+        isOnboarding: true
+      }
     };
   }
 
-  private explainAgents(): any {
+  private explainAgents(): AgentResponse {
     return {
-      reply: `## 🤖 **Meet Your AI Agents**
+      success: true,
+      message: `## 🤖 **Meet Your AI Agents**
 
 Each agent is specialized for different tasks:
 
@@ -145,17 +171,21 @@ Each agent is specialized for different tasks:
 - Each agent remembers your context
 
 Ready to **meet your agents**?`,
-      agentName: this.config.name,
-      timestamp: new Date().toISOString(),
-      memoryUsed: [],
-      isOnboarding: true,
-      showExploreButton: true
+      memoryUpdated: false,
+      metadata: {
+        agentName: this.config.name,
+        timestamp: new Date().toISOString(),
+        memoryUsed: [],
+        isOnboarding: true,
+        showExploreButton: true
+      }
     };
   }
 
-  private explainVoiceFeatures(): any {
+  private explainVoiceFeatures(): AgentResponse {
     return {
-      reply: `## 🎤 **Voice Features**
+      success: true,
+      message: `## 🎤 **Voice Features**
 
 Memory Agent supports full voice interaction:
 
@@ -182,16 +212,20 @@ Memory Agent supports full voice interaction:
 - Great for accessibility and multitasking
 
 Want to **try voice input** now, or explore other features?`,
-      agentName: this.config.name,
-      timestamp: new Date().toISOString(),
-      memoryUsed: [],
-      isOnboarding: true
+      memoryUpdated: false,
+      metadata: {
+        agentName: this.config.name,
+        timestamp: new Date().toISOString(),
+        memoryUsed: [],
+        isOnboarding: true
+      }
     };
   }
 
-  private generateExploreResponse(): any {
+  private generateExploreResponse(): AgentResponse {
     return {
-      reply: `## 🚀 **Perfect! You're Ready to Explore**
+      success: true,
+      message: `## 🚀 **Perfect! You're Ready to Explore**
 
 Great choice! You now know the basics of Memory Agent. Here's what happens next:
 
@@ -213,18 +247,22 @@ Great choice! You now know the basics of Memory Agent. Here's what happens next:
 - I'll always be here if you need onboarding again!
 
 **Click "Explore Agents" below to start your Memory Agent journey!** 🎉`,
-      agentName: this.config.name,
-      timestamp: new Date().toISOString(),
-      memoryUsed: [],
-      isOnboarding: true,
-      showExploreButton: true,
-      completesOnboarding: true
+      memoryUpdated: false,
+      metadata: {
+        agentName: this.config.name,
+        timestamp: new Date().toISOString(),
+        memoryUsed: [],
+        isOnboarding: true,
+        showExploreButton: true,
+        completesOnboarding: true
+      }
     };
   }
 
-  private generateHelpfulResponse(input: string): any {
+  private generateHelpfulResponse(input: string): AgentResponse {
     return {
-      reply: `I'm here to help you get started with Memory Agent! 
+      success: true,
+      message: `I'm here to help you get started with Memory Agent! 
 
 You can ask me about:
 - 🧠 **Memory features** - "How does memory work?"
@@ -233,10 +271,13 @@ You can ask me about:
 - 🚀 **Getting started** - "I'm ready to explore!"
 
 Or simply tell me what you'd like to learn about Memory Agent!`,
-      agentName: this.config.name,
-      timestamp: new Date().toISOString(),
-      memoryUsed: [],
-      isOnboarding: true
+      memoryUpdated: false,
+      metadata: {
+        agentName: this.config.name,
+        timestamp: new Date().toISOString(),
+        memoryUsed: [],
+        isOnboarding: true
+      }
     };
   }
 

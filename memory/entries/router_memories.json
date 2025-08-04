@@ -569,5 +569,62 @@
       "memory",
       "systems"
     ]
+  },
+  {
+    "id": "ed2237e6-6608-42cb-ac66-73c47a9e6310",
+    "agentId": "router",
+    "type": "log",
+    "input": "Research the latest developments in AI memory systems",
+    "summary": "Routing to Research Agent...",
+    "context": "ROUTING_HANDOFF: research (confidence: 0.7) | Session: undefined | Original input preserved for target agent",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-04T19:46:02.320Z",
+    "createdAt": "2025-08-04T19:46:02.320Z",
+    "tags": [
+      "research",
+      "latest",
+      "developments",
+      "memory",
+      "systems"
+    ]
+  },
+  {
+    "id": "c3db8c6b-09d5-4cf6-a958-22b8dbe64ef0",
+    "agentId": "router",
+    "type": "log",
+    "input": "Research the latest developments in AI memory systems",
+    "summary": "Routing to Research Agent...",
+    "context": "ROUTING_HANDOFF: research (confidence: 0.7) | Session: undefined | Original input preserved for target agent",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-04T19:54:00.180Z",
+    "createdAt": "2025-08-04T19:54:00.180Z",
+    "tags": [
+      "research",
+      "latest",
+      "developments",
+      "memory",
+      "systems"
+    ]
+  },
+  {
+    "id": "74a19fed-c86a-48f8-9dda-4c0b1da017ff",
+    "agentId": "router",
+    "type": "log",
+    "input": "Research the latest developments in AI memory systems",
+    "summary": "Routing to Research Agent...",
+    "context": "ROUTING_HANDOFF: research (confidence: 0.7) | Session: undefined | Original input preserved for target agent",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-04T21:15:13.278Z",
+    "createdAt": "2025-08-04T21:15:13.278Z",
+    "tags": [
+      "research",
+      "latest",
+      "developments",
+      "memory",
+      "systems"
+    ]
   }
 ]

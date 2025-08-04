@@ -43,8 +43,27 @@ function ChatPageContent() {
       console.log('[ChatPage] Agent response received:', response);
       
       // Check if this response includes routing metadata
-      if (response.routing && response.routing.shouldRoute) {
-        const { targetAgent, originalInput, confidence, reasoning } = response.routing;
+      if (response.routing && response.routing.shouldRedirect) {
+        const { targetAgent, confidence, reasoning, originalMessage } = response.routing;
+        
+        // If target agent is the same as current agent, don't redirect - just continue conversation
+        if (targetAgent === activeAgent) {
+          console.log('[ChatPage] Staying in current thread, no redirection needed');
+          
+          // Just add the agent response to current thread
+          const agentMessage: Message = {
+            id: `agent_${Date.now()}`,
+            type: 'agent',
+            content: originalMessage,
+            timestamp: response.timestamp,
+            agentName: response.agentName || 'Assistant',
+            agentId: targetAgent,
+            memoryUsed: response.memoryUsed || [],
+          };
+          
+          setMessages(prev => [...prev, agentMessage]);
+          return;
+        }
         
         console.log('[ChatPage] Detected routing decision:', { 
           from: activeAgent, 
@@ -53,11 +72,11 @@ function ChatPageContent() {
           reasoning
         });
         
-        // Add routing message to current thread
+        // Show routing message briefly, then redirect
         const routingMessage: Message = {
           id: `routing_${Date.now()}`,
           type: 'routing',
-          content: response.reply, // "Routing to Research Agent..."
+          content: `🧠 Routing to ${targetAgent} Agent (${Math.round(confidence * 100)}% confidence)...\n\n${originalMessage}`,
           timestamp: response.timestamp,
           agentName: 'Router',
           agentId: 'router',
@@ -67,18 +86,28 @@ function ChatPageContent() {
         
         setMessages(prev => [...prev, routingMessage]);
         
-        // Navigate to the new agent thread with the original input
-        console.log('[ChatPage] Navigating to agent thread:', targetAgent);
-        router.push(`/chat?agent=${targetAgent}`);
-        
-        // Set up the new agent context
+        // Navigate to the new agent thread after a brief delay
         setTimeout(() => {
-          console.log('[ChatPage] Setting up new agent context');
+          console.log('[ChatPage] Navigating to agent thread:', targetAgent);
+          router.push(`/chat?agent=${targetAgent}`);
           setActiveAgent(targetAgent);
           
-          // Send the original input to the new agent
-          handleSendMessageToNewAgent(originalInput, targetAgent);
-        }, 100);
+          // Clear messages and show the agent's response directly
+          setMessages([]);
+          
+          // Add the final agent response to the new thread
+          const agentMessage: Message = {
+            id: `agent_${Date.now()}`,
+            type: 'agent',
+            content: originalMessage,
+            timestamp: response.timestamp,
+            agentName: response.agentName || 'Assistant',
+            agentId: targetAgent,
+            memoryUsed: response.memoryUsed || [],
+          };
+          
+          setMessages([agentMessage]);
+        }, 1500); // Show routing message for 1.5 seconds
         
       } else {
         // Regular agent message (no routing)

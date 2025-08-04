@@ -136,5 +136,95 @@
       "absolutely",
       "here"
     ]
+  },
+  {
+    "id": "5bbb646b-34c5-410c-a32f-355bda26cb74",
+    "agentId": "research",
+    "type": "goal",
+    "input": "Research the latest developments in AI memory systems",
+    "summary": "**Primary Question**: Research the latest developments in AI memory systems",
+    "context": "research_goal: exploration_research_latest_developments",
+    "relevanceScore": 1.2,
+    "frequency": 1,
+    "lastAccessed": "2025-08-04T22:22:40.040Z",
+    "createdAt": "2025-08-04T22:22:40.040Z",
+    "tags": [
+      "research",
+      "exploration",
+      "research latest developments",
+      "learning_goal"
+    ]
+  },
+  {
+    "id": "e7be205d-9883-4288-87d1-4dba54fb06d6",
+    "agentId": "research",
+    "type": "goal",
+    "input": "Research the latest developments in AI memory systems",
+    "summary": "**Primary Question**: Research the latest developments in AI memory systems",
+    "context": "research_goal: exploration_research_latest_developments",
+    "relevanceScore": 1.2,
+    "frequency": 1,
+    "lastAccessed": "2025-08-04T22:22:40.042Z",
+    "createdAt": "2025-08-04T22:22:40.042Z",
+    "tags": [
+      "research",
+      "exploration",
+      "research latest developments",
+      "learning_goal"
+    ]
+  },
+  {
+    "id": "ea2957da-ad02-4388-a20f-5d0a038d046b",
+    "agentId": "research",
+    "type": "goal",
+    "input": "Research the latest developments in AI memory systems",
+    "summary": "**Primary Question**: Research the latest developments in AI memory systems",
+    "context": "research_goal: exploration_research_latest_developments",
+    "relevanceScore": 1.2,
+    "frequency": 1,
+    "lastAccessed": "2025-08-04T22:22:50.450Z",
+    "createdAt": "2025-08-04T22:22:50.450Z",
+    "tags": [
+      "research",
+      "exploration",
+      "research latest developments",
+      "learning_goal"
+    ]
+  },
+  {
+    "id": "1ebeddda-f1f0-4c78-8acd-92edefef5d1b",
+    "agentId": "research",
+    "type": "goal",
+    "input": "Research the latest developments in AI memory systems",
+    "summary": "**Primary Question**: Research the latest developments in AI memory systems",
+    "context": "research_goal: exploration_research_latest_developments",
+    "relevanceScore": 1.2,
+    "frequency": 1,
+    "lastAccessed": "2025-08-04T23:03:12.152Z",
+    "createdAt": "2025-08-04T23:03:12.152Z",
+    "tags": [
+      "research",
+      "exploration",
+      "research latest developments",
+      "learning_goal"
+    ]
+  },
+  {
+    "id": "84b1872e-5897-464c-a79a-dc87257d34ed",
+    "agentId": "research",
+    "type": "goal",
+    "input": "Research the latest developments in AI memory systems",
+    "summary": "**Primary Question**: Research the latest developments in AI memory systems",
+    "context": "research_goal: exploration_research_latest_developments",
+    "relevanceScore": 1.2,
+    "frequency": 1,
+    "lastAccessed": "2025-08-04T23:03:12.155Z",
+    "createdAt": "2025-08-04T23:03:12.155Z",
+    "tags": [
+      "research",
+      "exploration",
+      "research latest developments",
+      "learning_goal"
+    ]
   }
 ]

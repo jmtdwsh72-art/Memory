@@ -3,6 +3,10 @@ import { MemoryManager } from '../utils/memory-manager';
 import { getAgentConfig } from '../utils/config-utils';
 import { useAgentMemoryWithPreset } from '../utils/memory-hooks';
 import { ConversationalBehavior } from '../utils/conversational-behavior';
+import { ContextInjector } from '../utils/context-injection';
+import { getConsultingPatterns } from '../utils/consulting-patterns';
+import { getKnowledgeForInput, formatKnowledgeSection } from '../utils/knowledge-loader';
+import { performWebSearch, formatSearchResults, isSearchAvailable } from '../utils/web-search';
 
 export class AutomationAgent {
   private config: AgentConfig;
@@ -16,7 +20,7 @@ export class AutomationAgent {
     this.conversational = new ConversationalBehavior();
   }
 
-  async processInput(input: string, userId?: string): Promise<AgentResponse> {
+  async processInput(input: string, userId?: string, routingMetadata?: any): Promise<AgentResponse> {
     try {
       // Use centralized memory utilities with automation preset
       const memory = useAgentMemoryWithPreset(this.config.id, 'automation', userId);
@@ -25,31 +29,32 @@ export class AutomationAgent {
       const memoryContext = await memory.recallWithPreset(input);
       const contextString = memory.buildContext(memoryContext);
       
-      // Check if we should ask clarifying questions
-      const taskType = this.identifyTaskType(input);
-      const hasRecentInteraction = await this.conversational.checkRecentInteraction(
-        this.config.id,
-        userId
-      );
+      // Get consulting patterns for automation agent
+      const consulting = getConsultingPatterns('automation');
       
-      // Calculate confidence based on task analysis
+      // Generate context injection
+      const injectedContext = ContextInjector.injectMemoryAwareness({
+        agentId: this.config.id,
+        input,
+        memoryContext,
+        routingMetadata,
+        userId
+      });
+      
+      // Analyze automation task and calculate confidence
+      const taskType = this.identifyTaskType(input);
       const confidence = this.calculateTaskConfidence(input, taskType);
       
-      // Determine if we should use conversational approach
-      const shouldClarify = !hasRecentInteraction && 
-        this.conversational.shouldAskClarification(input, confidence, userId);
-      
-      let response: string;
-      
-      if (shouldClarify) {
-        // Generate conversational response with clarifying questions
-        const acknowledgment = this.conversational.generateAcknowledgment('automation', { taskType });
-        const questions = this.conversational.generateClarifyingQuestions('automation', input, { taskType });
-        response = this.conversational.formatConversationalResponse(acknowledgment, questions);
-      } else {
-        // Generate full response
-        response = await this.generateResponse(input, contextString);
-      }
+      // Build comprehensive automation response
+      const response = await this.buildConsultingResponse(input, {
+        confidence,
+        consulting,
+        injectedContext,
+        memoryContext,
+        contextString,
+        taskType,
+        routingMetadata
+      });
       
       // Store interaction using centralized utility with goal tracking
       const storedTaskType = this.identifyTaskType(input);
@@ -76,7 +81,14 @@ export class AutomationAgent {
       return {
         success: true,
         message: response,
-        memoryUpdated: true
+        memoryUpdated: true,
+        metadata: {
+          agentId: this.config.id,
+          confidence,
+          consultingEnhanced: true,
+          hasMemoryContext: memoryContext.entries.length > 0,
+          taskType
+        }
       };
     } catch (error) {
       return {
@@ -101,6 +113,118 @@ export class AutomationAgent {
     response += '\n\n💾 This automation solution has been saved to my memory for future reference and iteration.';
     
     return response;
+  }
+
+  private async buildConsultingResponse(input: string, options: {
+    confidence: number;
+    consulting: any;
+    injectedContext: any;
+    memoryContext: any;
+    contextString: string;
+    taskType: string;
+    routingMetadata?: any;
+  }): Promise<string> {
+    const { confidence, consulting, injectedContext, memoryContext, contextString, taskType, routingMetadata } = options;
+    const sections: string[] = [];
+
+    // 1. Process-Focused Introduction (Automation Agent Voice)
+    const suppressIntro = routingMetadata?.suppressIntro || routingMetadata?.stayInThread;
+    if (!suppressIntro) {
+      if (injectedContext.personalizedIntro) {
+        sections.push(`⚙️ **Process Optimization**: ${injectedContext.personalizedIntro}`);
+      } else {
+        sections.push(`⚙️ **Process Optimization**: Let's streamline this workflow and make your processes more efficient.`);
+      }
+    }
+
+    // Add memory context if relevant
+    if (injectedContext.memoryAwareness) {
+      sections.push(injectedContext.memoryAwareness);
+    }
+
+    // 2. Process Clarification (for medium confidence)
+    if (confidence >= 0.3 && confidence < 0.7) {
+      const questions = consulting.getClarifyingQuestions(input);
+      if (questions.length > 0) {
+        sections.push(`## 🔍 Process Analysis\n\nTo design the most effective automation, I need to understand:\n\n${questions.map((q: string, i: number) => `${i + 1}. ${q}`).join('\n')}`);
+      }
+    }
+
+    // 3. Automation Framework
+    const framework = consulting.getStructuredFramework(input);
+    sections.push(framework);
+
+    // 4. Core Automation Response (if high confidence)
+    if (confidence >= 0.7) {
+      const coreResponse = await this.generateResponse(input, contextString);
+      // Clean up the response
+      const cleanResponse = coreResponse
+        .replace(/\n\n💾 This automation solution has been saved to my memory for future reference and iteration\./g, '')
+        .split('\n\n📚')[0]; // Remove memory section if present
+      sections.push(`## 🛠️ Automation Solution\n\n${cleanResponse}`);
+    }
+
+    // 5. Process Memory (if available)
+    if (memoryContext.entries.length > 0 && contextString.trim()) {
+      const memoryInsights = this.formatProcessInsights(memoryContext.entries.slice(0, 2));
+      if (memoryInsights) {
+        sections.push(`## 📋 Related Process History\n\n${memoryInsights}`);
+      }
+    }
+
+    // 6. Domain Knowledge Enhancement
+    const knowledgeModules = await getKnowledgeForInput(input);
+    if (knowledgeModules.length > 0) {
+      const knowledgeSection = formatKnowledgeSection(knowledgeModules);
+      if (knowledgeSection) {
+        sections.push(knowledgeSection);
+      }
+    }
+
+    // 7. Web Search Enhancement (when appropriate)
+    try {
+      const searchAvailable = await isSearchAvailable();
+      if (searchAvailable) {
+        const searchResponse = await performWebSearch(input, 'automation');
+        if (searchResponse && searchResponse.results.length > 0) {
+          const searchSection = formatSearchResults(searchResponse);
+          if (searchSection) {
+            sections.push(searchSection);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Web search failed for automation agent:', error);
+      // Continue without search results - graceful degradation
+    }
+
+    // 8. Implementation Steps
+    const nextSteps = consulting.getSuggestedNextSteps(input);
+    if (nextSteps.length > 0) {
+      sections.push(`## 🎯 Implementation Roadmap\n\n${nextSteps.map((step: string, i: number) => `${i + 1}. **${step}**`).join('\n')}`);
+    }
+
+    // 9. Automation Agent Closing (Systematic & Results-Focused)
+    const closingOptions = [
+      "Ready to implement? I can walk you through each step or dive into the technical details.",
+      "Which part of this automation would have the biggest impact? Let's start there.",
+      "I'm here to optimize every detail until this process runs like clockwork. What should we tackle first?"
+    ];
+    const closing = closingOptions[Math.floor(Math.random() * closingOptions.length)];
+    sections.push(`---\n\n💡 ${closing}`);
+
+    return sections.join('\n\n');
+  }
+
+  private formatProcessInsights(entries: any[]): string {
+    if (!entries || entries.length === 0) return '';
+    
+    return entries.map(entry => {
+      const cleanSummary = entry.summary
+        .replace(/^(automation_goal:|ROUTING_HANDOFF:|Agent:)/i, '')
+        .trim();
+      return `• ${cleanSummary}`;
+    }).join('\n');
   }
 
   private calculateTaskConfidence(input: string, taskType: string): number {

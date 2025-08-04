@@ -81,22 +81,9 @@ export class ConversationalHandler {
     if (handler) {
       const memoryEntry = handler.saveUserGoal(goalType, details, tags);
       
-      try {
-        await this.memoryManager.saveMemory({
-          agentId,
-          type: memoryEntry.type,
-          input: details,
-          summary: `User goal: ${goalType} - ${details}`,
-          tags: memoryEntry.tags,
-          userId: 'system', // Or pass actual user ID
-          context: JSON.stringify(memoryEntry)
-        });
-        
-        return { success: true, memoryEntry };
-      } catch (error) {
-        console.error('Failed to save user goal to memory:', error);
-        return { success: false, error };
-      }
+      // Note: Actual memory saving is handled by individual agents using useAgentMemory
+      // This method returns the formatted memory entry for agents to save
+      return { success: true, memoryEntry };
     }
     
     return { success: false, error: 'No handler found for agent' };

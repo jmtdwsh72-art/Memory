@@ -77,6 +77,7 @@ export interface MemorySearchOptions {
 export interface AgentResponse {
   success: boolean;
   message: string;
+  agentName?: string;
   data?: any;
   memoryUpdated?: boolean;
   routing?: {
@@ -85,5 +86,31 @@ export interface AgentResponse {
     confidence: number;
     reasoning: string;
     originalInput: string;
+    hasMemoryContext?: boolean;
+    contextPreview?: string;
+  };
+  metadata?: {
+    agentId?: string;
+    confidence?: number;
+    hasMemoryContext?: boolean;
+    intentType?: string;
+    taskType?: string;
+    routedBy?: string;
+    routingConfidence?: number;
+    routingMethod?: string;
+    timestamp?: string;
+    consultingEnhanced?: boolean;
+    enhanced?: boolean;
+    enhancementTimestamp?: string;
+    memoryEntriesUsed?: number;
+    goalsReferenced?: number;
+    routingAcknowledged?: boolean;
+    error?: boolean;
+    errorType?: string;
+    contextPreview?: string;
+    routingReason?: string;
+    agentName?: string;
+    knowledgeDomainsDetected?: string[];
+    knowledgeModulesInjected?: number;
   };
 }

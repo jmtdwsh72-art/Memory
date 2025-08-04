@@ -17,15 +17,17 @@ export class MemoryManager {
 
   async logMessage(message: AgentMessage): Promise<void> {
     try {
+      // Use memory table for logs since logs table doesn't exist
       const { error } = await supabase
-        .from('logs')
+        .from('memory')
         .insert({
-          id: message.id,
-          agent_name: message.agentName,
+          agent_id: message.agentName,
+          user_id: 'system', // We can enhance this later with actual user IDs
+          type: 'log',
           input: message.input,
           output: message.output,
-          timestamp: message.timestamp.toISOString(),
-          memory_used: message.memoryUsed || null
+          summary: `LOG: ${message.input.substring(0, 100)} -> ${message.output.substring(0, 100)}`,
+          tags: ['log', 'agent-interaction', message.agentName]
         });
 
       if (error) {

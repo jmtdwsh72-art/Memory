@@ -23,20 +23,20 @@ export class WelcomeAgentWrapper {
 
       const response = await this.welcomeAgent.handle(input, context);
       
-      if (!response || typeof response.reply !== 'string') {
+      if (!response || !response.success || typeof response.message !== 'string') {
         throw new Error('Invalid response from WelcomeAgent');
       }
 
       console.log('[WelcomeAgentWrapper] Response:', {
         input,
-        hasReply: !!response.reply,
-        replyLength: response.reply?.length
+        hasMessage: !!response.message,
+        messageLength: response.message?.length
       });
 
       return {
         success: true,
-        message: response.reply,
-        memoryUpdated: response.memoryUsed ? response.memoryUsed.length > 0 : false
+        message: response.message,
+        memoryUpdated: response.memoryUpdated || false
       };
     } catch (error) {
       const errorObj = error instanceof Error ? error : new Error('Welcome agent processing failed');

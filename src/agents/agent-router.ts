@@ -8,17 +8,21 @@ import { determineAgentByInput, getAllAgents } from '../config/agent-config';
 import { getAgentConfig } from '../utils/config-utils';
 import { useAgentMemoryWithPreset } from '../utils/memory-hooks';
 import { logAgentError, logSystemError } from '../utils/error-logger';
+import { ResponseMiddleware } from '../utils/response-middleware';
+import { RoutingStateManager, RoutingDecision } from '../utils/routing-state-manager';
 
 export class RouterAgent {
   private config: AgentConfig;
   private memoryManager: MemoryManager;
   private subAgents: Map<string, any>;
+  private routingStateManager: RoutingStateManager;
 
   constructor() {
     // Load validated configuration using centralized utility
     this.config = getAgentConfig('router');
     this.memoryManager = new MemoryManager();
     this.subAgents = new Map();
+    this.routingStateManager = new RoutingStateManager();
     this.initializeSubAgents();
   }
 
@@ -51,7 +55,7 @@ export class RouterAgent {
     }
   }
 
-  async processInput(input: string, userId?: string): Promise<AgentResponse> {
+  async processInput(input: string, userId?: string, currentAgent?: string): Promise<AgentResponse> {
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     try {
@@ -68,50 +72,85 @@ export class RouterAgent {
       // Enhanced intent analysis with memory awareness
       const intentResult = this.analyzeUserIntent(input);
       const agentType = this.determineAgentType(input);
-      const targetAgent = this.subAgents.get(agentType);
+      
+      // Evaluate routing decision using state manager
+      const routingDecision = this.routingStateManager.evaluateRouting(
+        userId || 'anonymous',
+        agentType,
+        intentResult.confidence,
+        input,
+        intentResult.reasoning,
+        currentAgent
+      );
 
       console.log('[RouterAgent] Enhanced routing decision:', {
         input: input.substring(0, 50),
         intentAnalysis: intentResult,
-        determinedAgentType: agentType,
-        hasTargetAgent: !!targetAgent,
-        recentRoutings: recentRoutings.length,
+        routingDecision,
         availableAgents: Array.from(this.subAgents.keys())
       });
 
       let response: AgentResponse;
       
-      // Handle routing to specialized agents
-      if (targetAgent && agentType !== 'router') {
-        // Check if we should bypass clarification based on user history
-        const shouldBypass = await this.shouldBypassClarification(input, userId, intentResult);
-        
-        // For high confidence routing (> 0.6), auto-switch to specialist agent
-        if (intentResult.confidence > 0.6 || shouldBypass) {
-          // Route to the target agent with clear handoff format
-          response = await this.routeToAgentWithHandoff(agentType, targetAgent, input, userId, {
+      // Handle routing based on state manager decision
+      if (routingDecision.shouldRoute && routingDecision.confidence >= 0.7) {
+        // High confidence - route directly to target agent
+        const targetAgent = this.subAgents.get(routingDecision.targetAgent);
+        if (targetAgent) {
+          response = await this.routeToAgentWithHandoff(routingDecision.targetAgent, targetAgent, input, userId, {
             originalInput: input,
             contextSummary: contextString,
-            routingReason: intentResult.reasoning,
-            confidence: intentResult.confidence,
+            routingReason: routingDecision.reason,
+            confidence: routingDecision.confidence,
             recentRoutings,
-            bypassedClarification: shouldBypass
+            bypassedClarification: true,
+            suppressIntro: routingDecision.suppressIntro,
+            dampingApplied: routingDecision.dampingApplied
           });
-        } else if (intentResult.confidence < 0.7 && intentResult.confidence > 0.3 && !shouldBypass) {
-          response = await this.handleClarificationRequest(input, intentResult);
         } else {
-          // Medium confidence - still route but with less certainty
-          response = await this.routeToAgent(agentType, targetAgent, input, userId, {
+          response = await this.handleDirectResponse(input, contextString);
+        }
+      } else if (!routingDecision.shouldRoute && routingDecision.targetAgent === currentAgent) {
+        // Staying in current agent - pass through without routing
+        const targetAgent = this.subAgents.get(routingDecision.targetAgent);
+        if (targetAgent) {
+          response = await this.routeToAgent(routingDecision.targetAgent, targetAgent, input, userId, {
             originalInput: input,
             contextSummary: contextString,
-            routingReason: intentResult.reasoning,
+            routingReason: routingDecision.reason,
+            confidence: routingDecision.confidence,
+            recentRoutings,
+            bypassedClarification: true,
+            suppressIntro: routingDecision.suppressIntro,
+            stayInThread: true
+          });
+        } else {
+          response = await this.handleDirectResponse(input, contextString);
+        }
+      } else if (routingDecision.confidence >= 0.3 && routingDecision.confidence < 0.7) {
+        // Medium confidence - prefer clarification over routing
+        response = await this.handleClarificationRequest(input, {
+          agentId: routingDecision.targetAgent,
+          confidence: routingDecision.confidence,
+          reasoning: routingDecision.reason
+        });
+      } else if (agentType === 'welcome' && (this.isOnboardingQuery(input) || routingDecision.confidence < 0.3)) {
+        // Low confidence or onboarding - route to welcome agent
+        const targetAgent = this.subAgents.get('welcome');
+        if (targetAgent) {
+          response = await this.routeToAgent('welcome', targetAgent, input, userId, {
+            originalInput: input,
+            contextSummary: contextString,
+            routingReason: 'onboarding or low confidence',
             confidence: intentResult.confidence,
             recentRoutings,
-            bypassedClarification: shouldBypass
+            bypassedClarification: true
           });
+        } else {
+          response = await this.handleDirectResponse(input, contextString);
         }
       } else {
-        // Handle direct response or no clear routing target
+        // Fallback to direct router response instead of welcome agent
         response = await this.handleDirectResponse(input, contextString);
       }
       
@@ -131,9 +170,29 @@ export class RouterAgent {
         output: `[Router → ${agentType}] ${response.message}`
       });
 
+      // Update routing state after processing
+      this.routingStateManager.updateRoutingState(
+        userId || 'anonymous',
+        routingDecision.targetAgent,
+        input,
+        intentResult.reasoning,
+        routingDecision.confidence,
+        routingDecision.shouldRoute
+      );
+
+      // Add thread redirection metadata for frontend
+      const shouldRedirect = routingDecision.shouldRoute && routingDecision.confidence >= 0.7;
+      
       return {
         ...response,
-        memoryUpdated: true
+        memoryUpdated: true,
+        routing: shouldRedirect ? {
+          shouldRedirect: true,
+          targetAgent: routingDecision.targetAgent,
+          confidence: routingDecision.confidence,
+          reasoning: routingDecision.reason,
+          originalMessage: response.message
+        } : undefined
       };
     } catch (error) {
       const errorObj = error instanceof Error ? error : new Error('Unknown router error');
@@ -165,6 +224,9 @@ export class RouterAgent {
       confidence?: number;
       recentRoutings?: any[];
       bypassedClarification?: boolean;
+      suppressIntro?: boolean;
+      dampingApplied?: number;
+      stayInThread?: boolean;
     }
   ): Promise<AgentResponse> {
     try {
@@ -172,26 +234,24 @@ export class RouterAgent {
       const agentConfig = getAllAgents().find(agent => agent.id === agentType);
       const agentName = agentConfig?.name || 'Specialist Agent';
 
+      // Check for memory context awareness
+      const hasMemoryContext = routingContext?.contextSummary && routingContext.contextSummary.trim().length > 0;
+      const memoryAwareness = hasMemoryContext ? 
+        `I see we've discussed related topics before. ` : '';
+
       // Log the successful routing
       await this.logRoutingTransition(agentType, input, userId, {
         success: true,
         confidence: routingContext?.confidence || 0,
-        reasoning: routingContext?.routingReason || 'keyword match'
+        reasoning: routingContext?.routingReason || 'keyword match',
+        hasMemoryContext
       });
 
-      // Return routing decision without executing the agent
-      // The frontend will handle the actual routing and agent execution
-      return {
-        success: true,
-        message: `Routing to ${agentName}...`,
-        routing: {
-          shouldRoute: true,
-          targetAgent: agentType,
-          confidence: routingContext?.confidence || 0,
-          reasoning: routingContext?.routingReason || 'keyword match',
-          originalInput: input
-        }
-      };
+      // Actually execute the target agent with the original input
+      const agentResponse = await this.routeToAgent(agentType, targetAgent, input, userId, routingContext);
+      
+      // Return the agent's response directly (no routing metadata - we've already routed)
+      return agentResponse;
 
     } catch (error) {
       const errorObj = error instanceof Error ? error : new Error('Routing failed');
@@ -223,6 +283,9 @@ export class RouterAgent {
       confidence?: number;
       recentRoutings?: any[];
       bypassedClarification?: boolean;
+      suppressIntro?: boolean;
+      dampingApplied?: number;
+      stayInThread?: boolean;
     }
   ): Promise<AgentResponse> {
     try {
@@ -236,35 +299,79 @@ export class RouterAgent {
       const agentConfig = getAllAgents().find(agent => agent.id === agentType);
       const agentName = agentConfig?.name || 'Specialist Agent';
 
+      // Check for memory context
+      const hasMemoryContext = routingContext?.contextSummary && routingContext.contextSummary.trim().length > 0;
+      const isRepeatedTopic = routingContext?.recentRoutings?.some(
+        routing => routing.similarity > 0.7
+      );
+
       let handoffMessage = '';
       if (!shouldSkipHandoff && routingContext?.confidence && routingContext.confidence > 0.8) {
-        // High confidence - smooth handoff
-        handoffMessage = `Perfect! I can see you need ${agentName.toLowerCase()} expertise. Let me connect you right away.\n\n`;
+        // High confidence - smooth handoff with memory awareness
+        if (hasMemoryContext && isRepeatedTopic) {
+          handoffMessage = `I see you're continuing our ${agentName.toLowerCase()} discussion. Let me connect you back.\n\n`;
+        } else if (hasMemoryContext) {
+          handoffMessage = `Based on what we've discussed before, ${agentName} can help you best with this. Connecting you now.\n\n`;
+        } else {
+          handoffMessage = `Perfect! I can see you need ${agentName.toLowerCase()} expertise. Let me connect you right away.\n\n`;
+        }
       } else if (!shouldSkipHandoff && routingContext?.confidence && routingContext.confidence > 0.5) {
         // Medium confidence - brief handoff
         handoffMessage = `I'll hand you over to the ${agentName} to help with that.\n\n`;
       }
       // Low confidence or recent routing - no handoff message, direct routing
 
+      // Pass routing metadata to the target agent
+      const enhancedInput = {
+        originalInput: input,
+        routingMetadata: {
+          routedFrom: 'router',
+          confidence: routingContext?.confidence || 0,
+          hasMemoryContext,
+          contextPreview: hasMemoryContext ? 
+            routingContext.contextSummary?.split('\n').slice(0, 2).join(' ') : undefined
+        }
+      };
+
       // Route to the target agent with preserved context
-      const agentResponse = await targetAgent.processInput(input, userId);
+      const agentResponse = await targetAgent.processInput(input, userId, enhancedInput);
       
       // Log the successful routing
       await this.logRoutingTransition(agentType, input, userId, {
         success: true,
         confidence: routingContext?.confidence || 0,
-        reasoning: routingContext?.routingReason || 'keyword match'
+        reasoning: routingContext?.routingReason || 'keyword match',
+        hasMemoryContext
       });
 
-      // Combine handoff message with agent response if needed
-      const finalMessage = handoffMessage ? 
-        `${handoffMessage}${agentResponse.message}` : 
-        agentResponse.message;
-
-      return {
-        ...agentResponse,
-        message: finalMessage
+      // Prepare routing metadata for response enhancement
+      const routingMetadata = {
+        routedFrom: 'router',
+        confidence: routingContext?.confidence || 0,
+        hasMemoryContext,
+        contextPreview: hasMemoryContext ? 
+          routingContext.contextSummary?.split('\n').slice(0, 2).join(' ') : undefined,
+        routingReason: routingContext?.routingReason,
+        recentRoutings: routingContext?.recentRoutings
       };
+
+      // Enhance the response with context awareness and professional formatting
+      const enhancedResponse = await ResponseMiddleware.enhanceAgentResponse({
+        agentId: agentType,
+        agentName: agentName,
+        originalResponse: agentResponse,
+        userInput: input,
+        userId,
+        routingMetadata: {
+          ...routingMetadata,
+          suppressIntro: routingContext?.suppressIntro,
+          stayInThread: routingContext?.stayInThread,
+          dampingApplied: routingContext?.dampingApplied
+        },
+        voiceEnabled: ResponseMiddleware.isVoiceEnabled()
+      });
+
+      return enhancedResponse;
 
     } catch (agentError) {
       const errorObj = agentError instanceof Error ? agentError : new Error('Agent processing failed');
@@ -284,11 +391,21 @@ export class RouterAgent {
         routingContext
       });
       
-      // Return fallback response
-      return {
-        success: false,
-        message: `The ${agentType} agent encountered an issue. Let me try to help you directly instead.\n\nYour request: "${input}"\n\nCould you try rephrasing your question, or would you like me to suggest which type of assistance might work better?`
+      // Create professional error response
+      const routingMetadata = {
+        routedFrom: 'router',
+        confidence: routingContext?.confidence || 0,
+        hasMemoryContext,
+        routingReason: routingContext?.routingReason
       };
+
+      return ResponseMiddleware.createErrorResponse(
+        agentType,
+        agentName,
+        errorObj,
+        input,
+        routingMetadata
+      );
     }
   }
 
@@ -404,6 +521,19 @@ export class RouterAgent {
     }
   }
 
+  private isOnboardingQuery(input: string): boolean {
+    const lowerInput = input.toLowerCase().trim();
+    
+    // Check for onboarding-related keywords
+    const onboardingKeywords = [
+      'welcome', 'start', 'begin', 'help', 'how to use', 'getting started',
+      'what can you do', 'what are you', 'introduction', 'tour', 'guide me',
+      'show me around', 'new here', 'first time', 'explain this', 'how does this work'
+    ];
+    
+    return onboardingKeywords.some(keyword => lowerInput.includes(keyword));
+  }
+
   private determineAgentType(input: string): string {
     const lowerInput = input.toLowerCase().trim();
     
@@ -434,25 +564,30 @@ export class RouterAgent {
     
     // Intent patterns with confidence scoring and synonyms
     const intentPatterns = [
-      // Research patterns (including learning and programming)
+      // Research patterns (including planning, learning, and analysis) - HIGHEST PRIORITY
       {
         agentId: 'research',
         patterns: [
           /^(what|who|when|where|why|how|tell me about|explain|research|find|investigate|analyze|study|explore)/,
+          /^(help me (plan|start|outline|research|understand|learn))/,
+          /\b(plan|planning|start|outline|strategy|approach|framework|methodology)\b/,
+          /\b(help me plan|i want to plan|need to plan|planning a|planning for)\b/,
           /\b(learn|understand|information|data|facts|evidence|statistics|trends|comparison)\b/,
           /\b(research|investigate|analyze|study|explore|examine|compare|evaluate)\b/,
           /\b(i want to learn|teach me|how to|how do i|show me how)\b/,
           /\b(tutorial|guide|instructions|steps|walkthrough)\b/
         ],
         keywords: [
-          // Programming synonyms
+          // Planning and research (PRIORITY KEYWORDS)
+          'plan', 'planning', 'start', 'outline', 'strategy', 'approach', 'framework', 'methodology', 'research', 'analysis',
+          // Programming synonyms  
           'python', 'javascript', 'java', 'c++', 'programming', 'coding', 'code', 'development', 'software',
           // General learning
-          'technology', 'science', 'market', 'analysis', 'data', 'study', 'course', 'training',
+          'technology', 'science', 'market', 'data', 'study', 'course', 'training', 'project',
           // Specific topics
-          'algorithm', 'database', 'framework', 'library', 'api', 'web development', 'machine learning'
+          'algorithm', 'database', 'library', 'api', 'web development', 'machine learning'
         ],
-        weight: 1.0
+        weight: 1.5 // HIGHEST weight for research (was 1.2)
       },
       
       // Creative patterns  
@@ -463,20 +598,25 @@ export class RouterAgent {
           /\b(ideas|creative|story|name|concept|design|inspiration|innovative|original)\b/,
           /\b(brainstorm|ideate|conceptualize|visualize|craft|compose)\b/
         ],
-        keywords: ['story', 'name', 'brand', 'creative', 'ideas', 'design', 'concept'],
+        keywords: ['story', 'name', 'brand', 'creative', 'ideas', 'design', 'concept', 'brainstorm'],
         weight: 1.0
       },
       
-      // Automation patterns
+      // Automation patterns (VERY SPECIFIC - optimization and implementation ONLY)
       {
         agentId: 'automation',
         patterns: [
-          /^(automate|build|code|script|program|develop|implement|integrate)/,
-          /\b(automation|workflow|process|system|tool|script|bot|integration)\b/,
-          /\b(automate|optimize|streamline|systematize|mechanize)\b/
+          /^(automate|optimize|build a script|create a template|systematize this)/,
+          /\b(automation|workflow optimization|optimize this|streamline this process|systematize|mechanize)\b/,
+          /\b(build me a (script|template|tool|bot)|make this (efficient|faster|automated))\b/,
+          /\b(help me (automate this|optimize this|streamline this|systematize this))\b/
         ],
-        keywords: ['workflow', 'process', 'system', 'automation', 'tool', 'script', 'code'],
-        weight: 1.0
+        keywords: [
+          // Automation-specific (VERY SPECIFIC)
+          'automate', 'automation', 'optimize', 'streamline', 'systematize', 'mechanize',
+          'script', 'template', 'tool', 'bot', 'integration', 'workflow', 'efficient'
+        ],
+        weight: 0.8 // LOWER weight - much more specific targeting (was 0.9)
       }
     ];
 
@@ -527,19 +667,24 @@ export class RouterAgent {
   private getIntentBoosts(input: string, agentId: string): { boost: number; reasoning: string } {
     const boosts = {
       'research': [
-        { pattern: /\b(i want to learn|teach me|explain|what is|how does)\b/, boost: 0.3, reason: 'learning intent' },
-        { pattern: /\b(statistics|data|evidence|facts|information)\b/, boost: 0.2, reason: 'information seeking' },
-        { pattern: /\b(compare|versus|vs|difference between)\b/, boost: 0.25, reason: 'comparison request' }
+        { pattern: /\b(i want to learn|teach me|explain|what is|how does)\b/, boost: 0.4, reason: 'learning intent' },
+        { pattern: /\b(statistics|data|evidence|facts|information)\b/, boost: 0.3, reason: 'information seeking' },
+        { pattern: /\b(compare|versus|vs|difference between)\b/, boost: 0.3, reason: 'comparison request' },
+        { pattern: /\b(plan|planning|start|outline|strategy|approach)\b/, boost: 0.7, reason: 'planning and strategy' }, // INCREASED
+        { pattern: /\b(help me (plan|start|outline|research|understand))\b/, boost: 0.8, reason: 'planning assistance' }, // INCREASED
+        { pattern: /\b(project|framework|methodology)\b/, boost: 0.4, reason: 'project research' }, // INCREASED
+        { pattern: /\b(help me plan a|planning a|plan for)\b/, boost: 0.9, reason: 'direct planning request' } // NEW
       ],
       'creative': [
-        { pattern: /\b(name for|title for|brand|creative name)\b/, boost: 0.3, reason: 'naming request' },
-        { pattern: /\b(story|novel|character|plot|writing)\b/, boost: 0.25, reason: 'creative writing' },
-        { pattern: /\b(brainstorm|ideas for|suggestions for)\b/, boost: 0.3, reason: 'ideation request' }
+        { pattern: /\b(name for|title for|brand|creative name)\b/, boost: 0.4, reason: 'naming request' },
+        { pattern: /\b(story|novel|character|plot|writing)\b/, boost: 0.3, reason: 'creative writing' },
+        { pattern: /\b(brainstorm|ideas for|suggestions for)\b/, boost: 0.4, reason: 'ideation request' }
       ],
       'automation': [
-        { pattern: /\b(workflow|process|systematic|efficient|optimize)\b/, boost: 0.25, reason: 'process optimization' },
-        { pattern: /\b(build|create|develop|implement|integrate)\b/, boost: 0.2, reason: 'development intent' },
-        { pattern: /\b(save time|faster|efficient|streamline)\b/, boost: 0.3, reason: 'efficiency seeking' }
+        { pattern: /\b(automate this|automation for|optimize this specific|streamline this process|systematize this)\b/, boost: 0.5, reason: 'automation focus' }, // MORE SPECIFIC
+        { pattern: /\b(build a (script|template|tool|bot)|create an automated)\b/, boost: 0.4, reason: 'efficiency tools' }, // MORE SPECIFIC
+        { pattern: /\b(save time by automating|make this faster|more efficient workflow)\b/, boost: 0.4, reason: 'efficiency seeking' }, // MORE SPECIFIC
+        { pattern: /\b(help me (automate this|optimize this workflow|streamline this specific|systematize this process))\b/, boost: 0.6, reason: 'automation assistance' } // MORE SPECIFIC
       ]
     };
 

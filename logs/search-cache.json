@@ -1,0 +1,35 @@
+{
+  "research_cmVzZWFyY2ggdGhlIGxh": {
+    "response": {
+      "results": [
+        {
+          "title": "Understanding Research the latest developments in AI memory systems: A Comprehensive Guide",
+          "url": "https://example.com/guide/research-the-latest-developments-in-ai-memory-systems",
+          "snippet": "Comprehensive information about Research the latest developments in AI memory systems, including key concepts, best practices, and practical applications.",
+          "source": "Mock Search",
+          "relevanceScore": 0.9
+        },
+        {
+          "title": "Research the latest developments in AI memory systems - Latest Updates and Trends",
+          "url": "https://example.com/trends/research-the-latest-developments-in-ai-memory-systems",
+          "snippet": "Stay up to date with the latest developments and trends related to Research the latest developments in AI memory systems.",
+          "source": "Mock Search",
+          "relevanceScore": 0.8
+        },
+        {
+          "title": "Best Practices for Research the latest developments in AI memory systems",
+          "url": "https://example.com/best-practices/research-the-latest-developments-in-ai-memory-systems",
+          "snippet": "Learn the best practices and common pitfalls to avoid when working with Research the latest developments in AI memory systems.",
+          "source": "Mock Search",
+          "relevanceScore": 0.7
+        }
+      ],
+      "query": "Research the latest developments in AI memory systems",
+      "provider": "DuckDuckGo",
+      "timestamp": "2025-08-04T22:55:28.179Z",
+      "cached": false
+    },
+    "timestamp": "2025-08-04T22:55:28.179Z",
+    "expiresAt": "2025-08-05T00:55:28.179Z"
+  }
+}
