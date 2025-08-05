@@ -14,7 +14,8 @@ import { detectClarificationNeed, generateClarifyingQuestions, createClarificati
 import { detectGoalProgress, createGoalProgressMemory, getStatusAwareGreeting, getCongratulationsMessage, getAbandonmentMessage, getProgressMessage } from '../utils/goal-tracker';
 import { generateSessionSummary, detectSummaryRequest, detectSaveSummaryRequest, detectSessionEnding, shouldOfferSummary } from '../utils/result-summarizer';
 import { composeFinalResponse, FinalResponseContext, assessSessionComplexity, shouldOfferMemoryStorage, createSessionDecisionMemory } from '../utils/final-response-composer';
-import { generateResponsePlan, AgentContext, ResponsePlan } from '../utils/reasoning-planner';
+// Note: Legacy imports commented out as we now use the new response pipeline
+import { generateAgentResponse } from '../utils/agent-core-response';
 
 export class CreativeAgent {
   private config: AgentConfig;
@@ -234,22 +235,11 @@ export class CreativeAgent {
         }
       }
       
-      // Generate dynamic response plan
-      const agentContext: AgentContext = {
-        agentId: this.config.id,
-        userId,
-        memoryEntries: memoryContext.entries,
-        lastResponse: lastSession?.lastAgentResponse,
-        routingMetadata
-      };
+      // Use the simplified reasoning level fallback
+      const finalReasoningLevel: ReasoningLevel = adjustedReasoningLevel || getReasoningLevel(input, memoryContext.entries, 'creative');
       
-      const responsePlan = generateResponsePlan(input, agentContext);
-      
-      // Use adjusted reasoning level if available, otherwise use plan's level
-      const finalReasoningLevel: ReasoningLevel = adjustedReasoningLevel || responsePlan.reasoningLevel;
-      
-      // Build dynamic creative response based on plan
-      const response = await this.buildPlannedCreativeResponse(input, responsePlan, {
+      // Build response using new pipeline
+      const response = await this.buildPlannedCreativeResponse(input, {
         consulting,
         injectedContext,
         memoryContext,
@@ -267,19 +257,16 @@ export class CreativeAgent {
         this.config.id,
         response,
         finalReasoningLevel,
-        { taskType: responsePlan.intent, confidence: responsePlan.confidence }
+        { taskType: 'creative', confidence: 0.8 }
       );
       
-      // Store interaction using centralized utility with goal tracking
-      const goalTag = `${responsePlan.intent}_${responsePlan.domain.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).slice(0, 3).join('_').toLowerCase()}`;
-      
-      // Save as goal type with appropriate tags
+      // Save interaction to memory
       await memory.saveMemory(
         input, 
         response, 
-        `creative_goal: ${goalTag} | reasoning: ${finalReasoningLevel}`,
+        `creative_response: ${input.slice(0, 50)}... | reasoning: ${finalReasoningLevel}`,
         'goal',
-        ['creative', responsePlan.intent, responsePlan.domain.toLowerCase(), 'creative_goal', `reasoning_${finalReasoningLevel}`]
+        ['creative', 'creative_goal', `reasoning_${finalReasoningLevel}`]
       );
 
       await this.logInteraction({
@@ -299,30 +286,26 @@ export class CreativeAgent {
       const finalResponseContext: FinalResponseContext = {
         recentGoal,
         reasoningLevel: finalReasoningLevel,
-        feedbackType: null, // TODO: Implement feedback analysis for creative agent
+        feedbackType: null,
         isSessionEnd: isSessionEnding,
         agentPersonality: 'creative',
-        knowledgeDomain: responsePlan.domain,
+        knowledgeDomain: this.extractKnowledgeDomain(input),
         userInput: input,
         hasMemoryContext: memoryContext.entries.length > 0,
         sessionComplexity: assessSessionComplexity({
           recentGoal,
           reasoningLevel: finalReasoningLevel,
-          feedbackType: null, // TODO: Implement feedback analysis for creative agent
+          feedbackType: null,
           isSessionEnd: isSessionEnding,
           agentPersonality: 'creative',
-          knowledgeDomain: responsePlan.domain,
+          knowledgeDomain: this.extractKnowledgeDomain(input),
           userInput: input,
           hasMemoryContext: memoryContext.entries.length > 0
         })
       };
 
-      const finalClosing = composeFinalResponse('creative', finalResponseContext, {
-        includeFollowUp: !isSessionEnding,
-        includeMemoryOffer: shouldOfferMemoryStorage(finalResponseContext) || shouldOfferSummaryFlag
-      });
-
-      const finalResponse = response + (finalClosing ? '\n\n---\n\n' + finalClosing : '');
+      // Skip template closings - they're now handled in generateAgentResponse
+      const finalResponse = response;
 
       return {
         success: true,
@@ -330,14 +313,7 @@ export class CreativeAgent {
         memoryUpdated: true,
         metadata: {
           agentId: this.config.id,
-          confidence: responsePlan.confidence,
           hasMemoryContext: memoryContext.entries.length > 0,
-          intentType: responsePlan.intent,
-          reasoningLevel: responsePlan.reasoningLevel,
-          domain: responsePlan.domain,
-          responseStrategy: responsePlan.responseStrategy,
-          toolsUsed: responsePlan.tools,
-          dynamicallyPlanned: true,
           summaryOffered: shouldOfferSummaryFlag && (isSessionEnding || Math.random() < 0.3)
         }
       };
@@ -377,7 +353,7 @@ export class CreativeAgent {
     return response;
   }
 
-  private async buildPlannedCreativeResponse(input: string, plan: ResponsePlan, options: {
+  private async buildPlannedCreativeResponse(input: string, options: {
     consulting: any;
     injectedContext: any;
     memoryContext: any;
@@ -388,8 +364,31 @@ export class CreativeAgent {
     goalProgressMessage?: string;
     statusGreeting?: string;
   }): Promise<string> {
-    // Execute plan steps dynamically for creative responses
-    return await this.executeCreativePlanSteps(input, plan, options);
+    // Extract memory strings from entries
+    const memoryStrings = options.memoryContext.entries
+      .slice(0, 3)
+      .map((entry: any) => entry.summary || '')
+      .filter((s: string) => s.length > 0);
+    
+    // Use the new core response generator
+    const coreResponse = await generateAgentResponse({
+      userInput: input,
+      memoryContext: memoryStrings,
+      agentType: 'creative',
+      personality: 'inspirational'
+    });
+    
+    // Prepend any acknowledgments or greetings
+    const prefixes = [];
+    if (options.statusGreeting) prefixes.push(options.statusGreeting);
+    if (options.feedbackAcknowledgment) prefixes.push(options.feedbackAcknowledgment);
+    if (options.goalProgressMessage) prefixes.push(options.goalProgressMessage);
+    
+    if (prefixes.length > 0) {
+      return prefixes.join('\n\n') + '\n\n' + coreResponse;
+    }
+    
+    return coreResponse;
   }
 
   private async executeCreativePlanSteps(input: string, plan: ResponsePlan, options: {

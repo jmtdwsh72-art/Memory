@@ -17,7 +17,8 @@ import { generateSessionSummary, detectSummaryRequest, detectSaveSummaryRequest,
 import { composeFinalResponse, FinalResponseContext, assessSessionComplexity, shouldOfferMemoryStorage, createSessionDecisionMemory } from '../utils/final-response-composer';
 import { cleanInputFromMemoryArtifacts, formatMemoryInsights, buildSafeMemoryContext } from '../utils/memory-formatter';
 import { generateSmartClosing, detectComprehensiveAnswer } from '../utils/smart-closing-generator';
-import { generateResponsePlan, AgentContext, ResponsePlan } from '../utils/reasoning-planner';
+// Note: Legacy imports commented out as we now use the new response pipeline
+import { generateAgentResponse } from '../utils/agent-core-response';
 
 export class ResearchAgent {
   private config: AgentConfig;
@@ -240,22 +241,11 @@ export class ResearchAgent {
         }
       }
       
-      // Generate dynamic response plan
-      const agentContext: AgentContext = {
-        agentId: this.config.id,
-        userId,
-        memoryEntries: memoryContext.entries,
-        lastResponse: lastSession?.lastAgentResponse,
-        routingMetadata
-      };
+      // Use the simplified reasoning level fallback
+      const reasoningLevel: ReasoningLevel = adjustedReasoningLevel || getReasoningLevel(cleanInput, memoryContext.entries, 'research');
       
-      const responsePlan = generateResponsePlan(cleanInput, agentContext);
-      
-      // Use adjusted reasoning level if available, otherwise use plan's level
-      const reasoningLevel: ReasoningLevel = adjustedReasoningLevel || responsePlan.reasoningLevel;
-      
-      // Build dynamic response based on plan
-      const response = await this.buildPlannedResponse(cleanInput, responsePlan, {
+      // Build response using new pipeline
+      const response = await this.buildPlannedResponse(cleanInput, {
         consulting,
         injectedContext,
         memoryContext,
@@ -267,16 +257,13 @@ export class ResearchAgent {
         statusGreeting
       });
       
-      // Store interaction using centralized utility with goal tracking
-      const goalTag = `${responsePlan.intent}_${responsePlan.domain.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).slice(0, 3).join('_').toLowerCase()}`;
-      
-      // Save as goal type with appropriate tags
+      // Save interaction to memory
       await memory.saveMemory(
         input, 
         response, 
-        `research_goal: ${goalTag}`,
+        `research_response: ${input.slice(0, 50)}... | reasoning: ${reasoningLevel}`,
         'goal',
-        ['research', responsePlan.intent, responsePlan.domain.toLowerCase(), 'learning_goal']
+        ['research', 'learning_goal', `reasoning_${reasoningLevel}`]
       );
 
       await this.logInteraction({
@@ -315,12 +302,8 @@ export class ResearchAgent {
         })
       };
 
-      const finalClosing = composeFinalResponse('research', finalResponseContext, {
-        includeFollowUp: !isSessionEnding,
-        includeMemoryOffer: shouldOfferMemoryStorage(finalResponseContext) || shouldOfferSummaryFlag
-      });
-
-      const finalResponse = response + (finalClosing ? '\n\n---\n\n' + finalClosing : '');
+      // Skip template closings - they're now handled in generateAgentResponse
+      const finalResponse = response;
 
       return {
         success: true,
@@ -328,14 +311,7 @@ export class ResearchAgent {
         memoryUpdated: true,
         metadata: {
           agentId: this.config.id,
-          confidence: responsePlan.confidence,
           hasMemoryContext: memoryContext.entries.length > 0,
-          intentType: responsePlan.intent,
-          reasoningLevel: responsePlan.reasoningLevel,
-          domain: responsePlan.domain,
-          responseStrategy: responsePlan.responseStrategy,
-          toolsUsed: responsePlan.tools,
-          dynamicallyPlanned: true,
           summaryOffered: shouldOfferSummaryFlag && (isSessionEnding || Math.random() < 0.3)
         }
       };
@@ -382,7 +358,7 @@ export class ResearchAgent {
     return response;
   }
 
-  private async buildPlannedResponse(input: string, plan: ResponsePlan, options: {
+  private async buildPlannedResponse(input: string, options: {
     consulting: any;
     injectedContext: any;
     memoryContext: any;
@@ -393,133 +369,33 @@ export class ResearchAgent {
     goalProgressMessage?: string;
     statusGreeting?: string;
   }): Promise<string> {
-    // Execute plan steps dynamically
-    return await this.executePlanSteps(input, plan, options);
+    // Extract memory strings from entries
+    const memoryStrings = options.memoryContext.entries
+      .slice(0, 3)
+      .map((entry: any) => entry.summary || '')
+      .filter((s: string) => s.length > 0);
+    
+    // Use the new core response generator
+    const coreResponse = await generateAgentResponse({
+      userInput: input,
+      memoryContext: memoryStrings,
+      agentType: 'research',
+      personality: 'analytical'
+    });
+    
+    // Prepend any acknowledgments or greetings
+    const prefixes = [];
+    if (options.statusGreeting) prefixes.push(options.statusGreeting);
+    if (options.feedbackAcknowledgment) prefixes.push(options.feedbackAcknowledgment);
+    if (options.goalProgressMessage) prefixes.push(options.goalProgressMessage);
+    
+    if (prefixes.length > 0) {
+      return prefixes.join('\n\n') + '\n\n' + coreResponse;
+    }
+    
+    return coreResponse;
   }
 
-  private async executePlanSteps(input: string, plan: ResponsePlan, options: {
-    consulting: any;
-    injectedContext: any;
-    memoryContext: any;
-    contextString: string;
-    routingMetadata?: any;
-    reasoningLevel: ReasoningLevel;
-    feedbackAcknowledgment?: string;
-    goalProgressMessage?: string;
-    statusGreeting?: string;
-  }): Promise<string> {
-    const { consulting, injectedContext, memoryContext, contextString, routingMetadata, reasoningLevel, feedbackAcknowledgment, goalProgressMessage, statusGreeting } = options;
-    const sections: string[] = [];
-
-    // Execute each step in the plan
-    for (const step of plan.planSteps) {
-      switch (step) {
-        case 'Acknowledge feedback':
-          if (feedbackAcknowledgment) {
-            sections.push(feedbackAcknowledgment);
-            sections.push('');
-          }
-          break;
-
-        case 'Address goal progress':
-          if (goalProgressMessage) {
-            sections.push(goalProgressMessage);
-            sections.push('');
-          }
-          break;
-
-        case 'Ask focused clarifying questions':
-          if (plan.tools.askClarifyingQuestions) {
-            const questions = this.generateSmartClarifyingQuestions(input, plan, reasoningLevel);
-            if (questions.length > 0) {
-              sections.push(`🧭 **Understanding Your Goal**\n\nTo give you the most targeted research:\n\n${questions.map((q, i) => `• ${q}`).join('\n')}`);
-            }
-          }
-          break;
-
-        case 'Reference relevant memory':
-        case 'Integrate memory context':
-        case 'Build on previous context':
-        case 'Connect to previous work':
-          if (plan.tools.useMemory && memoryContext.entries.length > 0 && contextString.trim()) {
-            const memoryInsights = formatMemoryInsights(memoryContext.entries.slice(0, 2));
-            if (memoryInsights && memoryInsights.trim().length > 0) {
-              sections.push(`## 📚 Relevant Context\n\n${memoryInsights}`);
-            }
-          }
-          break;
-
-        case 'Provide immediate first step':
-        case 'Interpret goal with nuance':
-        case 'Provide actionable plan':
-          sections.push(await this.generateActionablePlan(input, plan, contextString, reasoningLevel));
-          break;
-
-        case 'Clarify specific focus area':
-        case 'Provide targeted learning path':
-          sections.push(await this.generateTargetedPath(input, plan, contextString, reasoningLevel));
-          break;
-
-        case 'Add domain expertise':
-        case 'Include expert recommendations':
-        case 'Share relevant insights':
-          if (plan.tools.useKnowledge) {
-            const expertInsights = await this.generateExpertInsights(input, plan, reasoningLevel);
-            if (expertInsights) {
-              sections.push(expertInsights);
-            }
-          }
-          break;
-
-        case 'Include current best practices':
-          if (plan.tools.useSearch) {
-            const currentPractices = await this.generateCurrentPractices(input, plan);
-            if (currentPractices) {
-              sections.push(currentPractices);
-            }
-          }
-          break;
-
-        case 'Suggest next steps':
-          const nextSteps = consulting.getSuggestedNextSteps(input);
-          if (nextSteps.length > 0) {
-            sections.push(`## 🎯 Recommended Next Steps\n\n${nextSteps.map((step: string, i: number) => `${i + 1}. **${step}**`).join('\n')}`);
-          }
-          break;
-
-        case 'Guide exploration':
-        case 'Encourage iteration':
-          sections.push(this.generateExplorationGuidance(input, plan));
-          break;
-
-        case 'Clarify direction':
-          if (plan.confidence < 0.7) {
-            sections.push(this.generateDirectionClarification(input, plan));
-          }
-          break;
-      }
-    }
-
-    // Add contextual introduction if not suppressed
-    const suppressIntro = routingMetadata?.suppressIntro || routingMetadata?.stayInThread || routingMetadata?.isContinuation;
-    if (!suppressIntro && sections.length > 0) {
-      const intro = this.generateContextualIntroduction(plan, injectedContext, routingMetadata);
-      sections.unshift(intro);
-    }
-
-    // Add status greeting if available
-    if (statusGreeting && !routingMetadata?.isContinuation) {
-      sections.unshift(statusGreeting, '');
-    }
-
-    // Add task-tailored closing
-    const taskTailoredClosing = this.generateTaskTailoredClosing(input, plan, reasoningLevel);
-    if (taskTailoredClosing) {
-      sections.push(`\n👉 ${taskTailoredClosing}`);
-    }
-
-    return sections.join('\n\n');
-  }
 
   private getQuestionHeaderForLevel(reasoningLevel: ReasoningLevel): string {
     switch (reasoningLevel) {

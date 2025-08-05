@@ -37,7 +37,7 @@ export interface MemoryEntry {
   id: string;
   agentId: string;
   userId?: string;
-  type: 'log' | 'summary' | 'pattern' | 'correction' | 'goal' | 'goal_progress' | 'session_summary' | 'session_decision';
+  type: 'log' | 'summary' | 'pattern' | 'correction' | 'goal' | 'goal_progress' | 'session_summary' | 'session_decision' | 'conversation' | 'clarification';
   input: string;
   summary: string;
   context?: string;
