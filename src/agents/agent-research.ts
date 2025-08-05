@@ -8,6 +8,16 @@ import { ContextInjector } from '../utils/context-injection';
 import { getConsultingPatterns } from '../utils/consulting-patterns';
 import { getKnowledgeForInput, formatKnowledgeSection, detectDomains } from '../utils/knowledge-loader';
 import { performWebSearch, formatSearchResults, isSearchAvailable } from '../utils/web-search';
+import { getReasoningLevel, ReasoningLevel, getReasoningPromptModifier } from '../utils/reasoning-depth';
+import { analyzeUserFeedback, adjustReasoningLevelFromFeedback, generateFeedbackAcknowledgment, isContinuationRequest } from '../utils/feedback-analyzer';
+import { sessionTracker } from '../utils/session-tracker';
+import { detectClarificationNeed, createClarificationMemory } from '../utils/clarification-detector';
+import { detectGoalProgress, createGoalProgressMemory, getStatusAwareGreeting, getCongratulationsMessage, getAbandonmentMessage, getProgressMessage } from '../utils/goal-tracker';
+import { generateSessionSummary, detectSummaryRequest, detectSaveSummaryRequest, detectSessionEnding, shouldOfferSummary } from '../utils/result-summarizer';
+import { composeFinalResponse, FinalResponseContext, assessSessionComplexity, shouldOfferMemoryStorage, createSessionDecisionMemory } from '../utils/final-response-composer';
+import { cleanInputFromMemoryArtifacts, formatMemoryInsights, buildSafeMemoryContext } from '../utils/memory-formatter';
+import { generateSmartClosing, detectComprehensiveAnswer } from '../utils/smart-closing-generator';
+import { generateResponsePlan, AgentContext, ResponsePlan } from '../utils/reasoning-planner';
 
 export class ResearchAgent {
   private config: AgentConfig;
@@ -23,12 +33,159 @@ export class ResearchAgent {
 
   async processInput(input: string, userId?: string, routingMetadata?: any): Promise<AgentResponse> {
     try {
+      // Clean input from memory artifacts first
+      const cleanInput = cleanInputFromMemoryArtifacts(input);
+      
       // Use centralized memory utilities with research preset
       const memory = useAgentMemoryWithPreset(this.config.id, 'research', userId);
       
-      // Recall relevant memories using preset configuration
-      const memoryContext = await memory.recallWithPreset(input);
-      const contextString = memory.buildContext(memoryContext);
+      // Recall relevant memories using preset configuration (use clean input)
+      const memoryContext = await memory.recallWithPreset(cleanInput);
+      const contextString = buildSafeMemoryContext(memoryContext);
+      
+      // Check for previous session and analyze feedback
+      const sessionUserId = userId || 'anonymous';
+      const lastSession = sessionTracker.getLastResponse(sessionUserId);
+      let feedbackAcknowledgment = '';
+      let adjustedReasoningLevel: ReasoningLevel | null = null;
+      let goalProgressMessage = '';
+      let feedback = null;
+      
+      if (lastSession && lastSession.lastAgentId === this.config.id) {
+        // Analyze user feedback on previous response (use clean input)
+        feedback = analyzeUserFeedback(cleanInput, lastSession.lastAgentResponse, memoryContext.entries);
+        
+        // Store feedback memory if significant
+        if (feedback.feedbackMemory) {
+          await memory.saveMemory(
+            feedback.feedbackMemory.input || input,
+            feedback.feedbackMemory.summary || '',
+            feedback.feedbackMemory.summary || '',
+            'pattern',
+            ['feedback', feedback.type, 'user_preference']
+          );
+        }
+        
+        // Adjust reasoning level based on feedback
+        if (feedback.reasoningAdjustment) {
+          const currentLevel = (lastSession.lastReasoningLevel as ReasoningLevel) || 'intermediate';
+          adjustedReasoningLevel = adjustReasoningLevelFromFeedback(currentLevel, feedback);
+          feedbackAcknowledgment = generateFeedbackAcknowledgment(feedback);
+        }
+        
+        // Check if this is a continuation request
+        if (isContinuationRequest(input, lastSession.lastAgentResponse, feedback)) {
+          routingMetadata = {
+            ...routingMetadata,
+            isContinuation: true,
+            previousContext: lastSession.continuationContext
+          };
+        }
+      }
+      
+      // Check for goal progress updates
+      const goalProgress = detectGoalProgress(input, memoryContext.entries);
+      if (goalProgress.status) {
+        // Create and store goal progress memory
+        const progressMemory = createGoalProgressMemory(input, goalProgress, this.config.id, userId);
+        await memory.saveMemory(
+          progressMemory.input || input,
+          progressMemory.summary || '',
+          progressMemory.context || '',
+          'goal_progress',
+          progressMemory.tags || []
+        );
+        
+        // Generate appropriate progress message
+        const goalSummary = progressMemory.goalSummary || 'your research project';
+        switch (goalProgress.status) {
+          case 'completed':
+            goalProgressMessage = getCongratulationsMessage(goalSummary);
+            break;
+          case 'abandoned':
+            goalProgressMessage = getAbandonmentMessage(goalSummary);
+            break;
+          case 'in_progress':
+            goalProgressMessage = getProgressMessage(goalSummary);
+            break;
+        }
+      }
+      
+      // Check for status-aware greeting for returning users
+      let statusGreeting = '';
+      if (!goalProgressMessage && !feedbackAcknowledgment && !routingMetadata?.isContinuation) {
+        const greeting = getStatusAwareGreeting(memoryContext.entries, this.config.id);
+        if (greeting) {
+          statusGreeting = greeting;
+        }
+      }
+      
+      // Check for session summary request
+      if (detectSummaryRequest(input)) {
+        const sessionSummary = generateSessionSummary(memoryContext.entries, { 
+          agentId: this.config.id,
+          includeMetadata: true 
+        });
+        
+        await this.logInteraction({
+          id: this.generateId(),
+          timestamp: new Date(),
+          agentName: this.config.id,
+          input,
+          output: sessionSummary,
+          memoryUsed: memoryContext.entries.map(m => m.id)
+        });
+        
+        return {
+          success: true,
+          message: sessionSummary,
+          memoryUpdated: false,
+          metadata: {
+            agentId: this.config.id,
+            isSummary: true,
+            sessionAnalysis: true
+          }
+        };
+      }
+      
+      // Check for save summary request
+      if (detectSaveSummaryRequest(input)) {
+        const sessionSummary = generateSessionSummary(memoryContext.entries, { 
+          agentId: this.config.id,
+          includeMetadata: true 
+        });
+        
+        // Store the summary in memory
+        await memory.saveMemory(
+          'Session Summary Request',
+          sessionSummary,
+          `Research session summary generated on ${new Date().toLocaleDateString()}`,
+          'session_summary',
+          ['summary', 'reflection', this.config.id, 'session_recap']
+        );
+        
+        const confirmationMessage = `📝 **Session Summary Saved!**\n\nI've stored our session summary in your memory. You can reference it in future conversations, and I'll use it to provide better continuity.\n\n${sessionSummary}`;
+        
+        await this.logInteraction({
+          id: this.generateId(),
+          timestamp: new Date(),
+          agentName: this.config.id,
+          input,
+          output: confirmationMessage,
+          memoryUsed: memoryContext.entries.map(m => m.id)
+        });
+        
+        return {
+          success: true,
+          message: confirmationMessage,
+          memoryUpdated: true,
+          metadata: {
+            agentId: this.config.id,
+            isSummary: true,
+            summarySaved: true
+          }
+        };
+      }
       
       // Get consulting patterns for research agent
       const consulting = getConsultingPatterns('research');
@@ -42,23 +199,76 @@ export class ResearchAgent {
         userId
       });
       
-      // Analyze research intent and calculate confidence
-      const intent = this.analyzeResearchIntent(input);
-      const confidence = this.calculateIntentConfidence(intent);
+      // Check if input needs clarification (unless it's a continuation or feedback response)
+      if (!routingMetadata?.isContinuation && !routingMetadata?.awaitingClarification && !adjustedReasoningLevel) {
+        const clarificationResult = detectClarificationNeed(input, memoryContext.entries, contextString.length > 0);
+        
+        if (clarificationResult.needsClarification) {
+          // Store clarification request in memory
+          const clarificationMemory = createClarificationMemory(input, clarificationResult, this.config.id);
+          await memory.saveMemory(
+            clarificationMemory.input || input,
+            clarificationMemory.summary || '',
+            clarificationMemory.summary || '',
+            'pattern',
+            ['clarification_requested', clarificationResult.reason || 'vague', 'research']
+          );
+          
+          // Generate research-specific clarification response
+          const response = await this.handleClarificationRequest(input, clarificationResult, memoryContext, contextString);
+          
+          await this.logInteraction({
+            id: this.generateId(),
+            timestamp: new Date(),
+            agentName: this.config.id,
+            input,
+            output: response.message,
+            meta: { awaitingClarification: true }
+          });
+          
+          return {
+            success: true,
+            message: response.message,
+            memoryUpdated: true,
+            metadata: {
+              agentId: this.config.id,
+              awaitingClarification: true,
+              clarificationReason: clarificationResult.reason,
+              confidence: clarificationResult.confidence
+            }
+          };
+        }
+      }
       
-      // Build comprehensive research response
-      const response = await this.buildConsultingResponse(input, {
-        confidence,
+      // Generate dynamic response plan
+      const agentContext: AgentContext = {
+        agentId: this.config.id,
+        userId,
+        memoryEntries: memoryContext.entries,
+        lastResponse: lastSession?.lastAgentResponse,
+        routingMetadata
+      };
+      
+      const responsePlan = generateResponsePlan(cleanInput, agentContext);
+      
+      // Use adjusted reasoning level if available, otherwise use plan's level
+      const reasoningLevel: ReasoningLevel = adjustedReasoningLevel || responsePlan.reasoningLevel;
+      
+      // Build dynamic response based on plan
+      const response = await this.buildPlannedResponse(cleanInput, responsePlan, {
         consulting,
         injectedContext,
         memoryContext,
         contextString,
-        intent,
-        routingMetadata
+        routingMetadata,
+        reasoningLevel,
+        feedbackAcknowledgment,
+        goalProgressMessage,
+        statusGreeting
       });
       
       // Store interaction using centralized utility with goal tracking
-      const goalTag = `${intent.type}_${intent.subject.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).slice(0, 3).join('_').toLowerCase()}`;
+      const goalTag = `${responsePlan.intent}_${responsePlan.domain.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).slice(0, 3).join('_').toLowerCase()}`;
       
       // Save as goal type with appropriate tags
       await memory.saveMemory(
@@ -66,7 +276,7 @@ export class ResearchAgent {
         response, 
         `research_goal: ${goalTag}`,
         'goal',
-        ['research', intent.type, intent.subject.toLowerCase(), 'learning_goal']
+        ['research', responsePlan.intent, responsePlan.domain.toLowerCase(), 'learning_goal']
       );
 
       await this.logInteraction({
@@ -75,19 +285,58 @@ export class ResearchAgent {
         agentName: this.config.id,
         input,
         output: response,
-        memoryUsed: memoryContext.entries.map(m => m.id)
+        memoryUsed: memoryContext.entries.map(m => m.id),
+        meta: { reasoningLevel }
       });
+
+      // Compose final response with thoughtful closing
+      const recentGoal = await this.getRecentGoal(memoryContext.entries);
+      const isSessionEnding = detectSessionEnding(input);
+      const shouldOfferSummaryFlag = shouldOfferSummary(memoryContext.entries);
+      
+      const finalResponseContext: FinalResponseContext = {
+        recentGoal,
+        reasoningLevel,
+        feedbackType: feedback?.type || null,
+        isSessionEnd: isSessionEnding,
+        agentPersonality: 'research',
+        knowledgeDomain: this.extractKnowledgeDomain(input),
+        userInput: input,
+        hasMemoryContext: memoryContext.entries.length > 0,
+        sessionComplexity: assessSessionComplexity({
+          recentGoal,
+          reasoningLevel,
+          feedbackType: feedback?.type || null,
+          isSessionEnd: isSessionEnding,
+          agentPersonality: 'research',
+          knowledgeDomain: this.extractKnowledgeDomain(input),
+          userInput: input,
+          hasMemoryContext: memoryContext.entries.length > 0
+        })
+      };
+
+      const finalClosing = composeFinalResponse('research', finalResponseContext, {
+        includeFollowUp: !isSessionEnding,
+        includeMemoryOffer: shouldOfferMemoryStorage(finalResponseContext) || shouldOfferSummaryFlag
+      });
+
+      const finalResponse = response + (finalClosing ? '\n\n---\n\n' + finalClosing : '');
 
       return {
         success: true,
-        message: response,
+        message: finalResponse,
         memoryUpdated: true,
         metadata: {
           agentId: this.config.id,
-          confidence,
+          confidence: responsePlan.confidence,
           hasMemoryContext: memoryContext.entries.length > 0,
-          intentType: intent.type,
-          consultingEnhanced: true
+          intentType: responsePlan.intent,
+          reasoningLevel: responsePlan.reasoningLevel,
+          domain: responsePlan.domain,
+          responseStrategy: responsePlan.responseStrategy,
+          toolsUsed: responsePlan.tools,
+          dynamicallyPlanned: true,
+          summaryOffered: shouldOfferSummaryFlag && (isSessionEnding || Math.random() < 0.3)
         }
       };
     } catch (error) {
@@ -133,103 +382,460 @@ export class ResearchAgent {
     return response;
   }
 
-  private async buildConsultingResponse(input: string, options: {
-    confidence: number;
+  private async buildPlannedResponse(input: string, plan: ResponsePlan, options: {
     consulting: any;
     injectedContext: any;
     memoryContext: any;
     contextString: string;
-    intent: any;
     routingMetadata?: any;
+    reasoningLevel: ReasoningLevel;
+    feedbackAcknowledgment?: string;
+    goalProgressMessage?: string;
+    statusGreeting?: string;
   }): Promise<string> {
-    const { confidence, consulting, injectedContext, memoryContext, contextString, intent, routingMetadata } = options;
+    // Execute plan steps dynamically
+    return await this.executePlanSteps(input, plan, options);
+  }
+
+  private async executePlanSteps(input: string, plan: ResponsePlan, options: {
+    consulting: any;
+    injectedContext: any;
+    memoryContext: any;
+    contextString: string;
+    routingMetadata?: any;
+    reasoningLevel: ReasoningLevel;
+    feedbackAcknowledgment?: string;
+    goalProgressMessage?: string;
+    statusGreeting?: string;
+  }): Promise<string> {
+    const { consulting, injectedContext, memoryContext, contextString, routingMetadata, reasoningLevel, feedbackAcknowledgment, goalProgressMessage, statusGreeting } = options;
     const sections: string[] = [];
 
-    // 1. Contextual Introduction (Research Agent Voice)
-    const suppressIntro = routingMetadata?.suppressIntro || routingMetadata?.stayInThread;
-    if (!suppressIntro) {
-      if (injectedContext.personalizedIntro) {
-        sections.push(`🔬 **Research Analysis**: ${injectedContext.personalizedIntro}`);
-      } else {
-        sections.push(`🔬 **Research Analysis**: I'll help you develop a structured approach to this investigation.`);
+    // Execute each step in the plan
+    for (const step of plan.planSteps) {
+      switch (step) {
+        case 'Acknowledge feedback':
+          if (feedbackAcknowledgment) {
+            sections.push(feedbackAcknowledgment);
+            sections.push('');
+          }
+          break;
+
+        case 'Address goal progress':
+          if (goalProgressMessage) {
+            sections.push(goalProgressMessage);
+            sections.push('');
+          }
+          break;
+
+        case 'Ask focused clarifying questions':
+          if (plan.tools.askClarifyingQuestions) {
+            const questions = this.generateSmartClarifyingQuestions(input, plan, reasoningLevel);
+            if (questions.length > 0) {
+              sections.push(`🧭 **Understanding Your Goal**\n\nTo give you the most targeted research:\n\n${questions.map((q, i) => `• ${q}`).join('\n')}`);
+            }
+          }
+          break;
+
+        case 'Reference relevant memory':
+        case 'Integrate memory context':
+        case 'Build on previous context':
+        case 'Connect to previous work':
+          if (plan.tools.useMemory && memoryContext.entries.length > 0 && contextString.trim()) {
+            const memoryInsights = formatMemoryInsights(memoryContext.entries.slice(0, 2));
+            if (memoryInsights && memoryInsights.trim().length > 0) {
+              sections.push(`## 📚 Relevant Context\n\n${memoryInsights}`);
+            }
+          }
+          break;
+
+        case 'Provide immediate first step':
+        case 'Interpret goal with nuance':
+        case 'Provide actionable plan':
+          sections.push(await this.generateActionablePlan(input, plan, contextString, reasoningLevel));
+          break;
+
+        case 'Clarify specific focus area':
+        case 'Provide targeted learning path':
+          sections.push(await this.generateTargetedPath(input, plan, contextString, reasoningLevel));
+          break;
+
+        case 'Add domain expertise':
+        case 'Include expert recommendations':
+        case 'Share relevant insights':
+          if (plan.tools.useKnowledge) {
+            const expertInsights = await this.generateExpertInsights(input, plan, reasoningLevel);
+            if (expertInsights) {
+              sections.push(expertInsights);
+            }
+          }
+          break;
+
+        case 'Include current best practices':
+          if (plan.tools.useSearch) {
+            const currentPractices = await this.generateCurrentPractices(input, plan);
+            if (currentPractices) {
+              sections.push(currentPractices);
+            }
+          }
+          break;
+
+        case 'Suggest next steps':
+          const nextSteps = consulting.getSuggestedNextSteps(input);
+          if (nextSteps.length > 0) {
+            sections.push(`## 🎯 Recommended Next Steps\n\n${nextSteps.map((step: string, i: number) => `${i + 1}. **${step}**`).join('\n')}`);
+          }
+          break;
+
+        case 'Guide exploration':
+        case 'Encourage iteration':
+          sections.push(this.generateExplorationGuidance(input, plan));
+          break;
+
+        case 'Clarify direction':
+          if (plan.confidence < 0.7) {
+            sections.push(this.generateDirectionClarification(input, plan));
+          }
+          break;
       }
     }
 
-    // Add memory context if relevant
-    if (injectedContext.memoryAwareness) {
-      sections.push(injectedContext.memoryAwareness);
+    // Add contextual introduction if not suppressed
+    const suppressIntro = routingMetadata?.suppressIntro || routingMetadata?.stayInThread || routingMetadata?.isContinuation;
+    if (!suppressIntro && sections.length > 0) {
+      const intro = this.generateContextualIntroduction(plan, injectedContext, routingMetadata);
+      sections.unshift(intro);
     }
 
-    // 2. Clarifying Questions (for medium confidence)
-    if (confidence >= 0.3 && confidence < 0.7) {
-      const questions = consulting.getClarifyingQuestions(input);
-      if (questions.length > 0) {
-        sections.push(`## 🤔 Research Clarification\n\nTo provide the most valuable analysis, I'd like to understand:\n\n${questions.map((q: string, i: number) => `${i + 1}. ${q}`).join('\n')}`);
-      }
+    // Add status greeting if available
+    if (statusGreeting && !routingMetadata?.isContinuation) {
+      sections.unshift(statusGreeting, '');
     }
 
-    // 3. Structured Framework
-    const framework = consulting.getStructuredFramework(input);
-    sections.push(framework);
-
-    // 4. Core Research Response (if high confidence)
-    if (confidence >= 0.7) {
-      const coreResponse = await this.generateResponse(input, contextString);
-      // Extract just the analysis content, not the memory context
-      const cleanResponse = coreResponse.split('\n\n📚 **Building on our previous research:**')[0];
-      sections.push(`## 📊 Analysis\n\n${cleanResponse}`);
+    // Add task-tailored closing
+    const taskTailoredClosing = this.generateTaskTailoredClosing(input, plan, reasoningLevel);
+    if (taskTailoredClosing) {
+      sections.push(`\n👉 ${taskTailoredClosing}`);
     }
 
-    // 5. Memory Integration (if available)
-    if (memoryContext.entries.length > 0 && contextString.trim()) {
-      const memoryInsights = this.formatMemoryInsights(memoryContext.entries.slice(0, 2));
-      if (memoryInsights) {
-        sections.push(`## 📚 Relevant Context\n\n${memoryInsights}`);
-      }
-    }
+    return sections.join('\n\n');
+  }
 
-    // 6. Domain Knowledge Enhancement
+  private getQuestionHeaderForLevel(reasoningLevel: ReasoningLevel): string {
+    switch (reasoningLevel) {
+      case 'basic':
+        return "To help you better, I'd like to know:";
+      case 'advanced':
+        return "To provide rigorous analysis, please clarify:";
+      default:
+        return "To provide the most valuable analysis, I'd like to understand:";
+    }
+  }
+
+  private generateContextualIntroduction(plan: ResponsePlan, injectedContext: any, routingMetadata?: any): string {
+    if (routingMetadata?.isContinuation) {
+      return '🔬 **Continuing our research**...';
+    }
+    
+    if (injectedContext.personalizedIntro) {
+      return `🔬 **Research Analysis**: ${injectedContext.personalizedIntro}`;
+    }
+    
+    // Dynamic intro based on plan
+    switch (plan.responseStrategy) {
+      case 'clarification_first':
+        return '🔬 **Research Analysis**: I need to understand your research goals better to provide valuable insights.';
+      case 'structured_framework':
+        return '🔬 **Research Analysis**: I\'ll help you develop a structured approach to this investigation.';
+      case 'guided_discovery':
+        return '🔬 **Research Analysis**: Let\'s explore this topic systematically to uncover key insights.';
+      default:
+        return '🔬 **Research Analysis**: I\'ll help you develop a structured approach to this investigation.';
+    }
+  }
+
+  private generateSmartClarifyingQuestions(input: string, plan: ResponsePlan, reasoningLevel: ReasoningLevel): string[] {
+    const questions: string[] = [];
+    
+    // Smart clarification based on input patterns
+    if (/^(learn|code|coding|program)$/i.test(input.trim())) {
+      questions.push("What kind of coding are you interested in — web development, mobile apps, data science, or something else?");
+      questions.push("Do you have any prior experience, or would you prefer to start with hands-on projects?");
+    } else if (/^(research|study|analyze)$/i.test(input.trim())) {
+      questions.push("What specific topic or question should I help you research?");
+      questions.push("Are you looking for background information, current trends, or practical applications?");
+    } else if (plan.domain === 'general') {
+      questions.push("What specific area or topic are you most interested in exploring?");
+      questions.push("What's the end goal — learning something new, solving a problem, or making a decision?");
+    }
+    
+    return questions.slice(0, 2); // Max 2 focused questions
+  }
+
+  private async generateActionablePlan(input: string, plan: ResponsePlan, contextString: string, reasoningLevel: ReasoningLevel): Promise<string> {
+    const interpretedGoal = this.interpretGoalWithNuance(input, plan, contextString);
+    const immediateAction = this.generateImmediateAction(input, plan, reasoningLevel);
+    const learningOutcome = this.generateLearningOutcome(input, plan);
+    
+    return `🧭 **${interpretedGoal}**
+
+📌 **Immediate Focus**: ${immediateAction}
+
+🛠️ **Try This First**: ${this.generateTryThisFirst(input, plan, reasoningLevel)}
+
+🧠 **You'll Learn**: ${learningOutcome}`;
+  }
+
+  private async generateTargetedPath(input: string, plan: ResponsePlan, contextString: string, reasoningLevel: ReasoningLevel): Promise<string> {
+    const focusArea = this.identifySpecificFocus(input, plan);
+    const targetedSteps = await this.generateTargetedSteps(input, plan, reasoningLevel);
+    
+    return `🎯 **Focus Area**: ${focusArea}
+
+📋 **Your Learning Path**:
+${targetedSteps}`;
+  }
+
+  private async generateExpertInsights(input: string, plan: ResponsePlan, reasoningLevel: ReasoningLevel): Promise<string | null> {
     const knowledgeModules = await getKnowledgeForInput(input);
     if (knowledgeModules.length > 0) {
-      const knowledgeSection = formatKnowledgeSection(knowledgeModules);
-      if (knowledgeSection) {
-        sections.push(knowledgeSection);
-      }
+      const insights = this.extractActionableInsights(knowledgeModules, reasoningLevel);
+      return `💡 **Expert Insight**: ${insights}`;
     }
+    return null;
+  }
 
-    // 7. Web Search Enhancement (when appropriate)
+  private async generateCurrentPractices(input: string, plan: ResponsePlan): Promise<string | null> {
     try {
       const searchAvailable = await isSearchAvailable();
       if (searchAvailable) {
         const searchResponse = await performWebSearch(input, 'research');
         if (searchResponse && searchResponse.results.length > 0) {
-          const searchSection = formatSearchResults(searchResponse);
-          if (searchSection) {
-            sections.push(searchSection);
-          }
+          const practices = this.extractBestPractices(searchResponse);
+          return `⚡ **Current Best Practices**: ${practices}`;
         }
       }
     } catch (error) {
       console.warn('Web search failed for research agent:', error);
-      // Continue without search results - graceful degradation
     }
+    return null;
+  }
 
-    // 8. Suggested Next Steps
-    const nextSteps = consulting.getSuggestedNextSteps(input);
-    if (nextSteps.length > 0) {
-      sections.push(`## 🎯 Recommended Next Steps\n\n${nextSteps.map((step: string, i: number) => `${i + 1}. **${step}**`).join('\n')}`);
+  private interpretGoalWithNuance(input: string, plan: ResponsePlan, contextString: string): string {
+    const cleanInput = input.toLowerCase().trim();
+    
+    // Nuanced interpretation patterns
+    if (cleanInput.includes('learn') && cleanInput.includes('code')) {
+      if (plan.domain.includes('web')) return 'Start Your Web Development Journey';
+      if (plan.domain.includes('python')) return 'Master Python Programming';
+      if (plan.domain.includes('javascript')) return 'Build Interactive Web Applications';
+      return 'Begin Your Coding Adventure';
     }
+    
+    if (cleanInput.includes('research') || cleanInput.includes('study')) {
+      return `Deep Dive into ${plan.domain.charAt(0).toUpperCase() + plan.domain.slice(1)}`;
+    }
+    
+    if (cleanInput.includes('compare') || cleanInput.includes('vs')) {
+      return `Strategic Comparison Analysis`;
+    }
+    
+    return `${plan.intent.charAt(0).toUpperCase() + plan.intent.slice(1)} ${plan.domain} Effectively`;
+  }
 
-    // 9. Research Agent Closing (Professional & Collaborative)
-    const closingOptions = [
-      "I'm ready to dive deeper into any of these areas that interest you most.",
-      "Would you like me to elaborate on any specific aspect of this research framework?",
-      "I can provide more detailed analysis on whichever angle serves your goals best."
+  private generateImmediateAction(input: string, plan: ResponsePlan, reasoningLevel: ReasoningLevel): string {
+    const domain = plan.domain.toLowerCase();
+    
+    if (domain.includes('python')) {
+      return "Install Python and VS Code, then create your first 'Hello World' program";
+    }
+    
+    if (domain.includes('web') || domain.includes('javascript')) {
+      return "Start with HTML/CSS basics using freeCodeCamp or create a simple personal landing page";
+    }
+    
+    if (domain.includes('data') || domain.includes('machine learning')) {
+      return "Set up a Jupyter notebook environment and explore a beginner dataset";
+    }
+    
+    if (plan.intent === 'research') {
+      return `Identify 2-3 authoritative sources on ${plan.domain} and create a research outline`;
+    }
+    
+    return `Begin with the fundamentals of ${plan.domain} through hands-on practice`;
+  }
+
+  private generateTryThisFirst(input: string, plan: ResponsePlan, reasoningLevel: ReasoningLevel): string {
+    const domain = plan.domain.toLowerCase();
+    
+    if (domain.includes('python')) {
+      return "Build a simple calculator that adds, subtracts, multiplies, and divides two numbers.";
+    }
+    
+    if (domain.includes('web')) {
+      return "Create a personal portfolio page with your name, photo, and three favorite hobbies.";
+    }
+    
+    if (domain.includes('javascript')) {
+      return "Make an interactive button that changes color when clicked.";
+    }
+    
+    if (plan.intent === 'research') {
+      return `Find and summarize 3 key insights about ${plan.domain} from reputable sources.`;
+    }
+    
+    return `Complete one small, practical project in ${plan.domain} to get hands-on experience.`;
+  }
+
+  private generateLearningOutcome(input: string, plan: ResponsePlan): string {
+    const domain = plan.domain.toLowerCase();
+    
+    if (domain.includes('python')) {
+      return "Basic Python syntax, variables, and how to run simple programs on your computer.";
+    }
+    
+    if (domain.includes('web')) {
+      return "How web pages are structured with HTML and styled with CSS.";
+    }
+    
+    if (domain.includes('javascript')) {
+      return "How to make web pages interactive and respond to user clicks.";
+    }
+    
+    if (plan.intent === 'research') {
+      return `Core concepts, current trends, and practical applications in ${plan.domain}.`;
+    }
+    
+    return `Foundational knowledge and practical skills in ${plan.domain}.`;
+  }
+
+  private identifySpecificFocus(input: string, plan: ResponsePlan): string {
+    // Extract specific focus from input
+    if (plan.domain === 'coding' && input.toLowerCase().includes('web')) {
+      return 'Frontend Web Development';
+    }
+    
+    if (plan.domain === 'coding' && input.toLowerCase().includes('python')) {
+      return 'Python Programming Fundamentals';
+    }
+    
+    return `${plan.domain.charAt(0).toUpperCase() + plan.domain.slice(1)} ${plan.intent.charAt(0).toUpperCase() + plan.intent.slice(1)}`;
+  }
+
+  private async generateTargetedSteps(input: string, plan: ResponsePlan, reasoningLevel: ReasoningLevel): Promise<string> {
+    const steps = [
+      `1. **Week 1**: ${this.generateWeeklyStep(input, plan, 1)}`,
+      `2. **Week 2**: ${this.generateWeeklyStep(input, plan, 2)}`,
+      `3. **Week 3**: ${this.generateWeeklyStep(input, plan, 3)}`
     ];
-    const closing = closingOptions[Math.floor(Math.random() * closingOptions.length)];
-    sections.push(`---\n\n💡 ${closing}`);
+    
+    return steps.join('\n');
+  }
 
-    return sections.join('\n\n');
+  private generateWeeklyStep(input: string, plan: ResponsePlan, week: number): string {
+    const domain = plan.domain.toLowerCase();
+    
+    if (domain.includes('python')) {
+      const pythonSteps = [
+        'Learn variables, strings, and basic input/output',
+        'Master loops, conditionals, and functions',
+        'Build your first real project (to-do list or calculator)'
+      ];
+      return pythonSteps[week - 1] || 'Continue practicing with personal projects';
+    }
+    
+    if (domain.includes('web')) {
+      const webSteps = [
+        'HTML structure and CSS styling basics',
+        'JavaScript fundamentals and DOM manipulation',
+        'Build a complete responsive website'
+      ];
+      return webSteps[week - 1] || 'Deploy your project online';
+    }
+    
+    return `Focus on ${plan.domain} fundamentals and practice`;
+  }
+
+  private extractActionableInsights(knowledgeModules: any[], reasoningLevel: ReasoningLevel): string {
+    // Extract the most actionable insights from knowledge modules
+    if (knowledgeModules.length > 0) {
+      return `${knowledgeModules[0].title || 'Key insight'} - apply this immediately to see results.`;
+    }
+    return 'Industry best practices suggest starting with fundamentals and building practical projects.';
+  }
+
+  private extractBestPractices(searchResponse: any): string {
+    // Extract current best practices from search results
+    if (searchResponse.results && searchResponse.results.length > 0) {
+      const firstResult = searchResponse.results[0];
+      return `${firstResult.title} - ${firstResult.snippet?.slice(0, 100)}...`;
+    }
+    return 'Stay updated with the latest tools and methodologies in your chosen field.';
+  }
+
+  private generateTaskTailoredClosing(input: string, plan: ResponsePlan, reasoningLevel: ReasoningLevel): string | null {
+    const domain = plan.domain.toLowerCase();
+    const intent = plan.intent;
+    
+    // High confidence - offer specific next steps
+    if (plan.confidence >= 0.9) {
+      if (domain.includes('python')) {
+        return "Ready to write your first Python script? Or want a full 30-day learning roadmap?";
+      }
+      
+      if (domain.includes('web')) {
+        return "Want to build your first webpage, or shall I suggest some beginner-friendly tutorials?";
+      }
+      
+      if (intent === 'research') {
+        return "Need me to dig deeper into any specific aspect, or ready to start your research?";
+      }
+      
+      if (intent === 'compare') {
+        return "Want detailed pros/cons for each option, or ready to make your decision?";
+      }
+      
+      return "Ready to take the next step, or want me to go deeper on any part?";
+    }
+    
+    // Medium confidence - ask for clarification
+    if (plan.confidence >= 0.7) {
+      return "Want me to go deeper on this, or shall I focus on a different aspect?";
+    }
+    
+    // Lower confidence - request more information
+    return "What specific part interests you most, or would you like me to explore a different angle?";
+  }
+
+  private async generateKnowledgeSection(input: string): Promise<string | null> {
+    const knowledgeModules = await getKnowledgeForInput(input);
+    if (knowledgeModules.length > 0) {
+      return formatKnowledgeSection(knowledgeModules);
+    }
+    return null;
+  }
+
+  private async generateSearchSection(input: string): Promise<string | null> {
+    try {
+      const searchAvailable = await isSearchAvailable();
+      if (searchAvailable) {
+        const searchResponse = await performWebSearch(input, 'research');
+        if (searchResponse && searchResponse.results.length > 0) {
+          return formatSearchResults(searchResponse);
+        }
+      }
+    } catch (error) {
+      console.warn('Web search failed for research agent:', error);
+    }
+    return null;
+  }
+
+  private generateExplorationGuidance(input: string, plan: ResponsePlan): string {
+    return `## 🔍 Exploration Direction\n\nBased on your ${plan.domain} inquiry, I recommend we explore this systematically. Your ${plan.intent} goal suggests we should focus on building understanding through structured investigation.`;
+  }
+
+  private generateDirectionClarification(input: string, plan: ResponsePlan): string {
+    return `## 🎯 Direction Setting\n\nTo provide the most valuable research, could you help me understand the specific direction you'd like to take with this ${plan.domain} topic?`;
   }
 
   private formatMemoryInsights(entries: any[]): string {
@@ -479,16 +1085,50 @@ What specific aspect of ${subject} would you like to focus on first? I can help 
   
   private extractMainSubject(input: string): string {
     // Remove common question words and extract the main subject
-    const cleaned = input.replace(/^(i want to |how to |what is |tell me about |explain |learn |understand |study )/i, '').trim();
-    const words = cleaned.split(/\s+/);
+    let cleaned = input.toLowerCase().trim();
+    
+    // Remove memory artifacts first
+    cleaned = cleaned.replace(/\[?\d{4}-\d{2}-\d{2}t[\d:.z-]+\]?\s*/g, '');
+    cleaned = cleaned.replace(/building on what we discussed about\s*/g, '');
+    cleaned = cleaned.replace(/continuing from your\s*/g, '');
+    cleaned = cleaned.replace(/since you're working on\s*/g, '');
+    cleaned = cleaned.replace(/\*\*primary question\*\*:\s*/g, '');
+    
+    // Remove common question prefixes
+    cleaned = cleaned.replace(/^(i want to |i'd like to |how to |what is |tell me about |explain |learn |understand |study |help me )/i, '');
+    
+    // Handle specific coding patterns
+    if (/\b(code|coding|programming|program)\b/.test(cleaned)) {
+      if (/\bpython\b/.test(cleaned)) return 'Python programming';
+      if (/\bjavascript\b/.test(cleaned)) return 'JavaScript programming';
+      if (/\bjava\b/.test(cleaned)) return 'Java programming';
+      if (/\bweb\b/.test(cleaned)) return 'web development';
+      if (/\bapp\b/.test(cleaned)) return 'app development';
+      return 'coding';
+    }
+    
+    // Clean up duplicates and normalize
+    cleaned = cleaned.replace(/^(learn |learning |how to )+/gi, '');
+    cleaned = cleaned.replace(/\b(code|coding)\b.*\b(code|coding)\b/gi, 'coding');
+    cleaned = cleaned.replace(/\b(program|programming)\b.*\b(program|programming)\b/gi, 'programming');
+    
+    const words = cleaned.split(/\s+/).filter(word => word.length > 0);
     
     // Look for key technical terms, proper nouns, or significant concepts
     const significantWords = words.filter(word => 
       word.length > 2 && 
-      !['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'about'].includes(word.toLowerCase())
+      !['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'about', 'how', 'become', 'need', 'guide', 'beginner'].includes(word)
     );
     
-    return significantWords.slice(0, 3).join(' ') || 'the topic you mentioned';
+    if (significantWords.length === 0) {
+      return 'coding';
+    }
+    
+    // Join up to 2 significant words for a clean subject
+    const subject = significantWords.slice(0, 2).join(' ');
+    
+    // Final cleanup and normalization
+    return subject.trim() || 'coding';
   }
 
   private extractSpecifics(input: string): string[] {
@@ -818,6 +1458,53 @@ However, the best choice ultimately depends on your specific goals and context. 
     return `Next steps for researching ${subject}: [immediate actions you can take]`;
   }
 
+  private async handleClarificationRequest(
+    input: string,
+    clarificationResult: any,
+    memoryContext: any,
+    contextString: string
+  ): Promise<{ message: string }> {
+    const questions = generateClarifyingQuestions(clarificationResult, 'research', input);
+    
+    // Create research-focused clarification message
+    let clarificationMessage = '🔬 **Research Agent**: I\'d love to help with your research, but I need some clarification to provide the most valuable analysis.\n\n';
+    
+    // Add reason-specific context for research
+    switch (clarificationResult.reason) {
+      case 'vague_input':
+        clarificationMessage += 'Your research request is quite broad - could you help me focus on the specific area you\'d like to investigate?\n\n';
+        break;
+      case 'missing_subject':
+        clarificationMessage += 'I\'m not sure what topic you\'d like me to research - could you specify the subject area?\n\n';
+        break;
+      case 'underspecified_goal':
+        clarificationMessage += 'I can see you want research done, but I\'m not clear on what type of analysis or outcome you\'re looking for.\n\n';
+        break;
+      case 'ambiguous_context':
+        clarificationMessage += 'I need more context to understand what research focus would be most helpful.\n\n';
+        break;
+    }
+    
+    // Add research-specific clarifying questions
+    if (questions.length > 0) {
+      clarificationMessage += 'To provide thorough research, could you clarify:\n\n';
+      questions.forEach((question, index) => {
+        clarificationMessage += `• ${question}\n`;
+      });
+      clarificationMessage += '\n';
+    }
+    
+    // Add memory context if available
+    if (contextString && contextString.trim()) {
+      clarificationMessage += '📚 **Based on our previous research**, I can build on what we\'ve already discussed. Feel free to reference any prior topics or continue from where we left off.\n\n';
+    }
+    
+    clarificationMessage += 'Once I understand your research needs better, I can provide comprehensive analysis, structured frameworks, and actionable insights!';
+    
+    return {
+      message: clarificationMessage
+    };
+  }
 
   private async logInteraction(message: AgentMessage): Promise<void> {
     await this.memoryManager.logMessage(message);
@@ -829,5 +1516,37 @@ However, the best choice ultimately depends on your specific goals and context. 
 
   getConfig(): AgentConfig {
     return { ...this.config };
+  }
+
+  // Helper methods for Final Response Composer integration
+  private async getRecentGoal(memoryEntries: MemoryEntry[]): Promise<string | undefined> {
+    const goalEntries = memoryEntries
+      .filter(entry => entry.type === 'goal' || entry.type === 'goal_progress')
+      .sort((a, b) => b.lastAccessed.getTime() - a.lastAccessed.getTime());
+    
+    return goalEntries.length > 0 ? goalEntries[0].goalSummary || goalEntries[0].summary : undefined;
+  }
+
+  private extractKnowledgeDomain(input: string): string | undefined {
+    const lowerInput = input.toLowerCase();
+    
+    // Research domain detection
+    if (lowerInput.includes('research') || lowerInput.includes('study') || lowerInput.includes('investigate')) {
+      return 'research methodology';
+    }
+    if (lowerInput.includes('data') || lowerInput.includes('analytics') || lowerInput.includes('analysis')) {
+      return 'data analysis';
+    }
+    if (lowerInput.includes('technology') || lowerInput.includes('tech') || lowerInput.includes('software')) {
+      return 'technology';
+    }
+    if (lowerInput.includes('science') || lowerInput.includes('scientific')) {
+      return 'scientific research';
+    }
+    if (lowerInput.includes('business') || lowerInput.includes('market') || lowerInput.includes('industry')) {
+      return 'business research';
+    }
+    
+    return undefined;
   }
 }

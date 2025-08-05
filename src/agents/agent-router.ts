@@ -10,6 +10,9 @@ import { useAgentMemoryWithPreset } from '../utils/memory-hooks';
 import { logAgentError, logSystemError } from '../utils/error-logger';
 import { ResponseMiddleware } from '../utils/response-middleware';
 import { RoutingStateManager, RoutingDecision } from '../utils/routing-state-manager';
+import { getReasoningLevel, detectSimplificationRequest, getReasoningPromptModifier } from '../utils/reasoning-depth';
+import { sessionTracker } from '../utils/session-tracker';
+import { detectClarificationNeed, generateClarifyingQuestions, createClarificationMemory } from '../utils/clarification-detector';
 
 export class RouterAgent {
   private config: AgentConfig;
@@ -59,6 +62,9 @@ export class RouterAgent {
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     try {
+      // Initialize routing metadata
+      let routingMetadata: any = {};
+      
       // Use centralized memory utilities with router preset
       const memory = useAgentMemoryWithPreset(this.config.id, 'router', userId);
       
@@ -66,12 +72,70 @@ export class RouterAgent {
       const memoryContext = await memory.recallWithPreset(input);
       const contextString = memory.buildContext(memoryContext);
       
+      // Detect if this is a simplification request
+      const isSimplificationRequest = detectSimplificationRequest(input);
+      if (isSimplificationRequest && currentAgent) {
+        // Re-process with the current agent at a lower reasoning level
+        const targetAgent = this.subAgents.get(currentAgent);
+        if (targetAgent) {
+          return await this.routeToAgent(currentAgent, targetAgent, input, userId, {
+            originalInput: input,
+            contextSummary: contextString,
+            routingReason: 'simplification requested',
+            confidence: 1.0,
+            recentRoutings: [],
+            bypassedClarification: true,
+            reasoningLevel: 'basic',
+            isSimplification: true
+          });
+        }
+      }
+      
       // Check for recent routing patterns to prevent loops
       const recentRoutings = await this.checkRecentRoutings(userId, input);
       
       // Enhanced intent analysis with memory awareness
       const intentResult = this.analyzeUserIntent(input);
       const agentType = this.determineAgentType(input);
+      
+      // Check if input needs clarification before proceeding
+      const clarificationResult = detectClarificationNeed(input, memoryContext.entries, contextString.length > 0);
+      
+      if (clarificationResult.needsClarification && !routingMetadata?.isFollowUp) {
+        // Store clarification request in memory
+        const clarificationMemory = createClarificationMemory(input, clarificationResult, 'router');
+        await memory.saveMemory(
+          clarificationMemory.input || input,
+          clarificationMemory.summary || '',
+          clarificationMemory.summary || '',
+          'pattern',
+          ['clarification_requested', clarificationResult.reason || 'vague', 'router']
+        );
+        
+        // Generate clarification response
+        const response = await this.handleVagueClarificationRequest(input, clarificationResult, memoryContext, contextString);
+        
+        await this.logInteraction({
+          id: this.generateId(),
+          timestamp: new Date(),
+          agentName: this.config.name,
+          input,
+          output: response.message
+        });
+        
+        return {
+          ...response,
+          memoryUpdated: true,
+          metadata: {
+            awaitingClarification: true,
+            clarificationReason: clarificationResult.reason,
+            confidence: clarificationResult.confidence
+          }
+        };
+      }
+      
+      // Determine reasoning level based on input, memory, and domain
+      const reasoningLevel = getReasoningLevel(input, memoryContext.entries, agentType);
       
       // Evaluate routing decision using state manager
       const routingDecision = this.routingStateManager.evaluateRouting(
@@ -105,7 +169,8 @@ export class RouterAgent {
             recentRoutings,
             bypassedClarification: true,
             suppressIntro: routingDecision.suppressIntro,
-            dampingApplied: routingDecision.dampingApplied
+            dampingApplied: routingDecision.dampingApplied,
+            reasoningLevel
           });
         } else {
           response = await this.handleDirectResponse(input, contextString);
@@ -122,7 +187,8 @@ export class RouterAgent {
             recentRoutings,
             bypassedClarification: true,
             suppressIntro: routingDecision.suppressIntro,
-            stayInThread: true
+            stayInThread: true,
+            reasoningLevel
           });
         } else {
           response = await this.handleDirectResponse(input, contextString);
@@ -144,7 +210,8 @@ export class RouterAgent {
             routingReason: 'onboarding or low confidence',
             confidence: intentResult.confidence,
             recentRoutings,
-            bypassedClarification: true
+            bypassedClarification: true,
+            reasoningLevel
           });
         } else {
           response = await this.handleDirectResponse(input, contextString);
@@ -158,7 +225,7 @@ export class RouterAgent {
       await memory.saveMemory(
         input, 
         response.message, 
-        `ROUTING_HANDOFF: ${agentType} (confidence: ${intentResult.confidence}) | Session: ${userId} | Original input preserved for target agent`
+        `ROUTING_HANDOFF: ${agentType} (confidence: ${intentResult.confidence}) | Reasoning: ${reasoningLevel} | Session: ${userId} | Original input preserved for target agent`
       );
       
       // Log the routing decision
@@ -182,6 +249,17 @@ export class RouterAgent {
 
       // Add thread redirection metadata for frontend
       const shouldRedirect = routingDecision.shouldRoute && routingDecision.confidence >= 0.7;
+      
+      // Track session for router responses (when not routing to sub-agents)
+      if (!shouldRedirect) {
+        sessionTracker.setLastResponse(
+          userId || 'anonymous',
+          'router',
+          response.message,
+          reasoningLevel,
+          { agentType, confidence: intentResult.confidence }
+        );
+      }
       
       return {
         ...response,
@@ -227,6 +305,8 @@ export class RouterAgent {
       suppressIntro?: boolean;
       dampingApplied?: number;
       stayInThread?: boolean;
+      reasoningLevel?: 'basic' | 'intermediate' | 'advanced';
+      isSimplification?: boolean;
     }
   ): Promise<AgentResponse> {
     try {
@@ -286,6 +366,8 @@ export class RouterAgent {
       suppressIntro?: boolean;
       dampingApplied?: number;
       stayInThread?: boolean;
+      reasoningLevel?: 'basic' | 'intermediate' | 'advanced';
+      isSimplification?: boolean;
     }
   ): Promise<AgentResponse> {
     try {
@@ -329,7 +411,10 @@ export class RouterAgent {
           confidence: routingContext?.confidence || 0,
           hasMemoryContext,
           contextPreview: hasMemoryContext ? 
-            routingContext.contextSummary?.split('\n').slice(0, 2).join(' ') : undefined
+            routingContext.contextSummary?.split('\n').slice(0, 2).join(' ') : undefined,
+          reasoningLevel: routingContext?.reasoningLevel || 'intermediate',
+          reasoningPromptModifier: getReasoningPromptModifier(routingContext?.reasoningLevel || 'intermediate'),
+          isSimplification: routingContext?.isSimplification || false
         }
       };
 
@@ -366,7 +451,8 @@ export class RouterAgent {
           ...routingMetadata,
           suppressIntro: routingContext?.suppressIntro,
           stayInThread: routingContext?.stayInThread,
-          dampingApplied: routingContext?.dampingApplied
+          dampingApplied: routingContext?.dampingApplied,
+          reasoningLevel: routingContext?.reasoningLevel || 'intermediate'
         },
         voiceEnabled: ResponseMiddleware.isVoiceEnabled()
       });
@@ -723,6 +809,58 @@ export class RouterAgent {
     
     clarificationMessage += `Just let me know which direction sounds right, or feel free to rephrase your request with more details!`;
 
+    return {
+      success: true,
+      message: clarificationMessage
+    };
+  }
+
+  private async handleVagueClarificationRequest(
+    input: string,
+    clarificationResult: any,
+    memoryContext: any,
+    contextString: string
+  ): Promise<AgentResponse> {
+    const clarification = clarificationResult as any;
+    
+    // Generate appropriate clarifying questions
+    const questions = generateClarifyingQuestions(clarification, 'router', input);
+    
+    // Create personality-aware clarification message
+    let clarificationMessage = '🤔 I\'d love to help, but I need a bit more information to give you the best assistance.\n\n';
+    
+    // Add reason-specific context
+    switch (clarification.reason) {
+      case 'vague_input':
+        clarificationMessage += 'Your request seems quite general - could you help me understand what specifically you\'re looking for?\n\n';
+        break;
+      case 'missing_subject':
+        clarificationMessage += 'I\'m not sure what you\'re referring to - could you provide more details about the subject?\n\n';
+        break;
+      case 'underspecified_goal':
+        clarificationMessage += 'I can see what you want to work on, but I\'m not clear on the specific outcome you\'re hoping for.\n\n';
+        break;
+      case 'ambiguous_context':
+        clarificationMessage += 'I need a bit more context to understand what you\'d like me to focus on.\n\n';
+        break;
+    }
+    
+    // Add clarifying questions
+    if (questions.length > 0) {
+      clarificationMessage += 'Here are a few questions to help me assist you better:\n\n';
+      questions.forEach((question, index) => {
+        clarificationMessage += `• ${question}\n`;
+      });
+      clarificationMessage += '\n';
+    }
+    
+    // Add memory context if available
+    if (contextString && contextString.trim()) {
+      clarificationMessage += '📚 **Based on our previous conversations**, I can see we\'ve discussed related topics before. Feel free to reference anything from our chat history.\n\n';
+    }
+    
+    clarificationMessage += 'Once you provide more details, I\'ll be able to connect you with the right specialist or help you directly!';
+    
     return {
       success: true,
       message: clarificationMessage

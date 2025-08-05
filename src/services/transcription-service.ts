@@ -26,10 +26,11 @@ export class TranscriptionService {
   
   private constructor() {
     const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY environment variable is not set');
+    if (!apiKey || apiKey === 'your-openai-api-key-here') {
+      this.apiKey = '';
+    } else {
+      this.apiKey = apiKey;
     }
-    this.apiKey = apiKey;
   }
 
   public static getInstance(): TranscriptionService {
@@ -41,6 +42,15 @@ export class TranscriptionService {
 
   async transcribeAudio(request: TranscriptionRequest): Promise<TranscriptionResponse | TranscriptionError> {
     try {
+      // Check if API key is available
+      if (!this.apiKey) {
+        return {
+          success: false,
+          error: 'OpenAI API key not configured. Voice transcription is disabled.',
+          code: 'API_KEY_MISSING'
+        };
+      }
+
       // Validate audio size (max 25MB for Whisper)
       if (request.audio.length > 25 * 1024 * 1024) {
         throw new Error('Audio file exceeds maximum size of 25MB');
@@ -143,6 +153,10 @@ export class TranscriptionService {
   // Check if service is available
   async checkAvailability(): Promise<boolean> {
     try {
+      if (!this.apiKey) {
+        return false;
+      }
+
       const response = await fetch(`${this.baseUrl}/models`, {
         headers: {
           'Authorization': `Bearer ${this.apiKey}`

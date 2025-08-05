@@ -340,7 +340,11 @@ const SERPAPI_MIN_INTERVAL = 1000; // 1 second between calls
  * SerpAPI search implementation with rate limiting
  */
 async function searchSerpAPI(query: string): Promise<SearchResult[]> {
-  const apiKey = process.env.SERPAPI_KEY || '7b0ea40f2d2dd40689bc8b1f055856dce42a5b9093c290cbcab5d531d8c4bf0b';
+  const apiKey = process.env.SERPAPI_API_KEY;
+  
+  if (!apiKey || apiKey.startsWith('9c4d7f8e5a2b1c3d6e9f0a1b2c3d4e5f')) {
+    throw new Error('SerpAPI authentication failed - please check your API key');
+  }
   
   // Rate limiting
   const now = Date.now();
@@ -485,6 +489,8 @@ export async function performWebSearch(
   // Limit to top 3 results
   results = results.slice(0, 3);
   
+  console.log(`✅ Search completed using ${provider}: ${results.length} results for "${query}"`);
+  
   const response: SearchResponse = {
     results,
     query,
@@ -588,7 +594,21 @@ async function logSearchAnalytics(
  * Check if search functionality is available (internet connection, etc.)
  */
 export async function isSearchAvailable(): Promise<boolean> {
-  // For now, always return true since we have mock fallback
-  // In production, this could ping a test endpoint
-  return true;
+  // Check if SerpAPI is available, fallback to DuckDuckGo, and finally mock
+  return true; // Always true since we have multiple fallbacks
+}
+
+export function getSearchProviderStatus(): {
+  serpApiAvailable: boolean;
+  duckDuckGoAvailable: boolean;
+  primaryProvider: string;
+} {
+  const serpApiAvailable = !!process.env.SERPAPI_API_KEY;
+  const duckDuckGoAvailable = true; // DuckDuckGo doesn't require API key
+  
+  return {
+    serpApiAvailable,
+    duckDuckGoAvailable,
+    primaryProvider: serpApiAvailable ? 'SerpAPI' : 'DuckDuckGo'
+  };
 }

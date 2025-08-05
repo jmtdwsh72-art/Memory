@@ -10,6 +10,7 @@
 import { writeFile, readFile } from 'fs/promises';
 import { join } from 'path';
 import { deepKnowledgeBuilder, GeneratedKnowledgeModule } from './deep-knowledge-builder';
+import { ReasoningLevel } from './reasoning-depth';
 
 export interface KnowledgeModule {
   domain: string;
@@ -161,8 +162,10 @@ export async function getKnowledgeForInput(input: string): Promise<KnowledgeModu
 
 /**
  * Format knowledge modules for inclusion in agent responses
+ * @param modules - Knowledge modules to format
+ * @param reasoningLevel - The reasoning level to adapt formatting for
  */
-export function formatKnowledgeSection(modules: KnowledgeModule[]): string {
+export function formatKnowledgeSection(modules: KnowledgeModule[], reasoningLevel: ReasoningLevel = 'intermediate'): string {
   if (modules.length === 0) return '';
   
   const sections: string[] = [];
@@ -174,23 +177,68 @@ export function formatKnowledgeSection(modules: KnowledgeModule[]): string {
       ? `*Newly Generated Knowledge: ${module.domain}*`
       : `Domain Knowledge: ${module.domain}`;
     
-    const section = [
-      `## ${icon} ${title}`,
-      '',
-      `**Summary**: ${module.summary}`,
-      '',
-      `**Key Concepts**: ${module.keyConcepts.join(', ')}`,
-      '',
-      `**Common Mistakes to Avoid**:`,
-      ...module.commonMistakes.map(mistake => `• ${mistake}`),
-      '',
-      `**Typical Use Cases**:`,
-      ...module.useCases.map(useCase => `• ${useCase}`),
-      '',
-      `**Recommended Resources**:`,
-      ...module.recommendedResources.map(resource => `• [${resource.name}](${resource.url})`),
-      ''
-    ];
+    let section: string[] = [];
+    
+    if (reasoningLevel === 'basic') {
+      // Simplified format for basic reasoning level
+      section = [
+        `## ${icon} ${title}`,
+        '',
+        `**What it is**: ${module.summary}`,
+        '',
+        `**Main ideas**:`,
+        ...module.keyConcepts.slice(0, 3).map(concept => `• ${concept}`),
+        '',
+        `**Watch out for**:`,
+        ...module.commonMistakes.slice(0, 2).map(mistake => `• ${mistake}`),
+        '',
+        `**Used for**:`,
+        ...module.useCases.slice(0, 2).map(useCase => `• ${useCase}`),
+        ''
+      ];
+    } else if (reasoningLevel === 'advanced') {
+      // Enhanced format for advanced reasoning level
+      section = [
+        `## ${icon} ${title}`,
+        '',
+        `**Executive Summary**: ${module.summary}`,
+        '',
+        `**Core Conceptual Framework**:`,
+        ...module.keyConcepts.map((concept, idx) => `${idx + 1}. **${concept}** - [Detailed analysis needed]`),
+        '',
+        `**Critical Failure Points & Mitigation Strategies**:`,
+        ...module.commonMistakes.map(mistake => `• **Risk**: ${mistake}\n  **Mitigation**: [Systematic approach required]`),
+        '',
+        `**Advanced Applications & Edge Cases**:`,
+        ...module.useCases.map(useCase => `• **Scenario**: ${useCase}\n  **Implementation**: [Technical deep-dive available]`),
+        '',
+        `**Research & Academic Resources**:`,
+        ...module.recommendedResources.map(resource => `• [${resource.name}](${resource.url}) - [Peer-reviewed source]`),
+        '',
+        `**Theoretical Foundations**: [Available upon request]`,
+        `**Mathematical Models**: [Can be provided for quantitative analysis]`,
+        ''
+      ];
+    } else {
+      // Standard format for intermediate reasoning level
+      section = [
+        `## ${icon} ${title}`,
+        '',
+        `**Summary**: ${module.summary}`,
+        '',
+        `**Key Concepts**: ${module.keyConcepts.join(', ')}`,
+        '',
+        `**Common Mistakes to Avoid**:`,
+        ...module.commonMistakes.map(mistake => `• ${mistake}`),
+        '',
+        `**Typical Use Cases**:`,
+        ...module.useCases.map(useCase => `• ${useCase}`),
+        '',
+        `**Recommended Resources**:`,
+        ...module.recommendedResources.map(resource => `• [${resource.name}](${resource.url})`),
+        ''
+      ];
+    }
     
     // Add metadata for generated modules
     if (isGenerated && 'confidence' in module) {

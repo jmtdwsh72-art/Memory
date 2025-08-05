@@ -37,7 +37,7 @@ export interface MemoryEntry {
   id: string;
   agentId: string;
   userId?: string;
-  type: 'log' | 'summary' | 'pattern' | 'correction' | 'goal';
+  type: 'log' | 'summary' | 'pattern' | 'correction' | 'goal' | 'goal_progress' | 'session_summary' | 'session_decision';
   input: string;
   summary: string;
   context?: string;
@@ -46,6 +46,10 @@ export interface MemoryEntry {
   lastAccessed: Date;
   createdAt: Date;
   tags?: string[];
+  // Goal progress specific fields
+  goalId?: string;
+  goalSummary?: string;
+  goalStatus?: 'new' | 'in_progress' | 'completed' | 'abandoned';
 }
 
 export interface MemoryContext {
@@ -71,7 +75,7 @@ export interface MemorySearchOptions {
     start: Date;
     end: Date;
   };
-  types?: ('log' | 'summary' | 'pattern' | 'correction' | 'goal')[];
+  types?: ('log' | 'summary' | 'pattern' | 'correction' | 'goal' | 'goal_progress' | 'session_summary' | 'session_decision')[];
 }
 
 export interface AgentResponse {

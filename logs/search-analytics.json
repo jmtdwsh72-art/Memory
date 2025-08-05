@@ -6,5 +6,37 @@
     "resultCount": 3,
     "timestamp": "2025-08-04T22:55:28.180Z",
     "success": true
+  },
+  {
+    "queryHash": "aSB3b3VsZC",
+    "agentType": "research",
+    "provider": "DuckDuckGo",
+    "resultCount": 0,
+    "timestamp": "2025-08-05T11:37:35.434Z",
+    "success": false
+  },
+  {
+    "queryHash": "aeKAmWQgbG",
+    "agentType": "research",
+    "provider": "DuckDuckGo",
+    "resultCount": 0,
+    "timestamp": "2025-08-05T11:37:48.848Z",
+    "success": false
+  },
+  {
+    "queryHash": "aSB3YW50IH",
+    "agentType": "research",
+    "provider": "DuckDuckGo",
+    "resultCount": 0,
+    "timestamp": "2025-08-05T12:00:21.157Z",
+    "success": false
+  },
+  {
+    "queryHash": "aSBuZWVkIG",
+    "agentType": "research",
+    "provider": "DuckDuckGo",
+    "resultCount": 0,
+    "timestamp": "2025-08-05T12:13:13.265Z",
+    "success": false
   }
 ]

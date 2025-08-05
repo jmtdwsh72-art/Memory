@@ -51,7 +51,7 @@ export class MemoryEngine {
     output: string,
     userId?: string,
     context?: string,
-    type: 'log' | 'summary' | 'pattern' | 'correction' | 'goal' = 'summary',
+    type: 'log' | 'summary' | 'pattern' | 'correction' | 'goal' | 'goal_progress' | 'session_summary' | 'session_decision' = 'summary',
     tags?: string[]
   ): Promise<MemoryEntry> {
     const summary = this.generateSummary(input, output);
@@ -66,7 +66,7 @@ export class MemoryEngine {
       input,
       summary,
       context,
-      relevanceScore: type === 'goal' ? 1.2 : type === 'correction' ? 1.2 : 1.0,
+      relevanceScore: type === 'goal' ? 1.2 : type === 'goal_progress' ? 1.3 : type === 'session_summary' ? 1.4 : type === 'session_decision' ? 1.1 : type === 'correction' ? 1.2 : 1.0,
       frequency: 1,
       lastAccessed: new Date(),
       createdAt: new Date(),
@@ -80,18 +80,24 @@ export class MemoryEngine {
     if (shouldUseSupabase) {
       try {
         // Store in Supabase (using actual schema, let Supabase generate UUID)
-        const { data: insertData, error } = await supabase
+        const insertData = {
+          agent_id: memoryEntry.agentId,
+          user_id: memoryEntry.userId,
+          type: memoryEntry.type,
+          input: memoryEntry.input,
+          output: output, // Use the raw output
+          summary: memoryEntry.summary,
+          relevance: memoryEntry.relevanceScore,
+          tags: memoryEntry.tags,
+          // Include goal-specific fields if present
+          ...(memoryEntry.goalId && { goal_id: memoryEntry.goalId }),
+          ...(memoryEntry.goalSummary && { goal_summary: memoryEntry.goalSummary }),
+          ...(memoryEntry.goalStatus && { goal_status: memoryEntry.goalStatus })
+        };
+
+        const { data: responseData, error } = await supabase
           .from('memory')
-          .insert({
-            agent_id: memoryEntry.agentId,
-            user_id: memoryEntry.userId,
-            type: memoryEntry.type,
-            input: memoryEntry.input,
-            output: output, // Use the raw output
-            summary: memoryEntry.summary,
-            relevance: memoryEntry.relevanceScore,
-            tags: memoryEntry.tags
-          })
+          .insert(insertData)
           .select();
 
         if (error) {
@@ -103,8 +109,8 @@ export class MemoryEngine {
           await this.storeMemoryToFile(memoryEntry);
         } else {
           // Update the memory entry with the generated ID from Supabase
-          if (insertData && insertData[0]) {
-            memoryEntry.id = insertData[0].id;
+          if (responseData && responseData[0]) {
+            memoryEntry.id = responseData[0].id;
           }
           console.log('✅ Memory stored in Supabase:', memoryEntry.id);
           // Update patterns and detect learning opportunities
@@ -202,7 +208,11 @@ export class MemoryEngine {
           frequency: 1, // Default frequency
           lastAccessed: new Date(row.created_at), // Use created_at as last accessed
           createdAt: new Date(row.created_at),
-          tags: row.tags
+          tags: row.tags,
+          // Include goal-specific fields if present
+          ...(row.goal_id && { goalId: row.goal_id }),
+          ...(row.goal_summary && { goalSummary: row.goal_summary }),
+          ...(row.goal_status && { goalStatus: row.goal_status })
         }));
 
         // Calculate semantic relevance scores
@@ -357,7 +367,11 @@ export class MemoryEngine {
         frequency: row.frequency,
         lastAccessed: new Date(row.last_accessed),
         createdAt: new Date(row.created_at),
-        tags: row.tags
+        tags: row.tags,
+        // Include goal-specific fields if present
+        ...(row.goal_id && { goalId: row.goal_id }),
+        ...(row.goal_summary && { goalSummary: row.goal_summary }),
+        ...(row.goal_status && { goalStatus: row.goal_status })
       }));
 
       const byType = memories.reduce((acc, memory) => {
@@ -603,7 +617,7 @@ export class MemoryEngine {
     const queryTerms = this.extractKeyTerms(query.toLowerCase());
     const relevantPatterns: MemoryPattern[] = [];
     
-    for (const pattern of this.patterns.values()) {
+    for (const pattern of Array.from(this.patterns.values())) {
       const patternTerms = this.extractKeyTerms(pattern.pattern);
       const matchCount = queryTerms.filter(term => patternTerms.includes(term)).length;
       
@@ -635,22 +649,28 @@ export class MemoryEngine {
 
   private async storeMemoryEntry(entry: MemoryEntry): Promise<void> {
     try {
+      const insertData = {
+        id: entry.id,
+        agent_id: entry.agentId,
+        user_id: entry.userId,
+        type: entry.type,
+        input: entry.input,
+        summary: entry.summary,
+        context: entry.context,
+        relevance_score: entry.relevanceScore,
+        frequency: entry.frequency,
+        last_accessed: entry.lastAccessed.toISOString(),
+        created_at: entry.createdAt.toISOString(),
+        tags: entry.tags,
+        // Include goal-specific fields if present
+        ...(entry.goalId && { goal_id: entry.goalId }),
+        ...(entry.goalSummary && { goal_summary: entry.goalSummary }),
+        ...(entry.goalStatus && { goal_status: entry.goalStatus })
+      };
+
       const { error } = await supabase
         .from('memory')
-        .insert({
-          id: entry.id,
-          agent_id: entry.agentId,
-          user_id: entry.userId,
-          type: entry.type,
-          input: entry.input,
-          summary: entry.summary,
-          context: entry.context,
-          relevance_score: entry.relevanceScore,
-          frequency: entry.frequency,
-          last_accessed: entry.lastAccessed.toISOString(),
-          created_at: entry.createdAt.toISOString(),
-          tags: entry.tags
-        });
+        .insert(insertData);
 
       if (error) {
         console.error('Failed to store memory entry:', error);

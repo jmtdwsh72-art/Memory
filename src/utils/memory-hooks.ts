@@ -17,7 +17,7 @@ export interface AgentMemoryHookResult {
     input: string,
     output: string,
     context?: string,
-    type?: 'log' | 'summary' | 'pattern' | 'correction' | 'goal',
+    type?: 'log' | 'summary' | 'pattern' | 'correction' | 'goal' | 'goal_progress' | 'session_summary' | 'session_decision',
     tags?: string[]
   ) => Promise<MemoryEntry>;
 
@@ -87,7 +87,7 @@ export function useAgentMemory(
     input: string,
     output: string,
     context?: string,
-    type: 'log' | 'summary' | 'pattern' | 'correction' | 'goal' = 'log',
+    type: 'log' | 'summary' | 'pattern' | 'correction' | 'goal' | 'goal_progress' | 'session_summary' | 'session_decision' = 'log',
     tags?: string[]
   ): Promise<MemoryEntry> => {
     try {

@@ -6,10 +6,12 @@
  * reasoning style and expertise domain.
  */
 
+import { ReasoningLevel } from './reasoning-depth';
+
 export interface ConsultingUtility {
-  getClarifyingQuestions(input: string): string[];
-  getStructuredFramework(input: string): string;
-  getSuggestedNextSteps(input: string): string[];
+  getClarifyingQuestions(input: string, reasoningLevel?: ReasoningLevel): string[];
+  getStructuredFramework(input: string, reasoningLevel?: ReasoningLevel): string;
+  getSuggestedNextSteps(input: string, reasoningLevel?: ReasoningLevel): string[];
 }
 
 interface InputAnalysis {
@@ -44,7 +46,7 @@ function analyzeInput(input: string): InputAnalysis {
   // Detect domain
   let domain = 'general';
   if (/\b(business|marketing|sales|revenue)\b/.test(lowerInput)) domain = 'business';
-  if (/\b(tech|software|code|programming|app)\b/.test(lowerInput)) domain = 'technology';
+  if (/\b(tech|software|code|programming|app|python|javascript|java|html|css|coding|learn.*code|learn.*programming)\b/.test(lowerInput)) domain = 'coding';
   if (/\b(design|brand|creative|art|visual)\b/.test(lowerInput)) domain = 'design';
   if (/\b(data|analytics|research|statistics)\b/.test(lowerInput)) domain = 'data';
   if (/\b(process|workflow|automation|system)\b/.test(lowerInput)) domain = 'process';
@@ -63,22 +65,48 @@ function analyzeInput(input: string): InputAnalysis {
  * Focus: Logical breakdown, structured thinking, Socratic clarification
  */
 const researchConsulting: ConsultingUtility = {
-  getClarifyingQuestions(input: string): string[] {
+  getClarifyingQuestions(input: string, reasoningLevel: ReasoningLevel = 'intermediate'): string[] {
     const analysis = analyzeInput(input);
     const questions: string[] = [];
     
-    // Socratic questioning based on intent and complexity
+    // Special handling for coding/programming learning requests
+    if (input.includes('learn to code') || input.includes('learn programming') || 
+        /\b(learn|learning)\b.*\b(code|coding|programming|python|javascript|java|html|css)\b/i.test(input)) {
+      return [
+        "What kind of coding are you most interested in — websites, apps, automations, or something else?",
+        "Have you ever written any code before? Even a little helps.",
+        "Do you prefer to learn by reading, watching, or doing?"
+      ];
+    }
+    
+    // Socratic questioning based on intent, complexity, and reasoning level
     switch (analysis.intent) {
       case 'question':
-        questions.push("What specific aspect of this topic is most important for your current goals?");
-        if (!analysis.hasSpecifics) {
-          questions.push("Are you looking for a high-level overview or detailed technical analysis?");
+        if (reasoningLevel === 'basic') {
+          questions.push("What's the main thing you want to know about this?");
+          questions.push("Would you like a simple summary or more details?");
+        } else if (reasoningLevel === 'advanced') {
+          questions.push("What theoretical framework or methodology should guide this analysis?");
+          questions.push("What edge cases or nuanced considerations are most critical?");
+        } else {
+          questions.push("What specific aspect of this topic is most important for your current goals?");
+          if (!analysis.hasSpecifics) {
+            questions.push("Are you looking for a high-level overview or detailed technical analysis?");
+          }
         }
         break;
         
       case 'analysis':
-        questions.push("What criteria should I use to evaluate and compare different options?");
-        questions.push("What's the intended outcome or decision you need to make with this research?");
+        if (reasoningLevel === 'basic') {
+          questions.push("What are you trying to decide or figure out?");
+          questions.push("What's most important to you in making this choice?");
+        } else if (reasoningLevel === 'advanced') {
+          questions.push("What quantitative metrics and qualitative factors should weight the analysis?");
+          questions.push("What are the second-order effects and systemic implications to consider?");
+        } else {
+          questions.push("What criteria should I use to evaluate and compare different options?");
+          questions.push("What's the intended outcome or decision you need to make with this research?");
+        }
         break;
         
       case 'planning':
@@ -102,11 +130,12 @@ const researchConsulting: ConsultingUtility = {
       questions.push("What data sources or methodologies would be most valuable?");
     }
     
-    // Return 1-3 most relevant questions
-    return questions.slice(0, analysis.complexity === 'high' ? 3 : 2);
+    // Return questions based on reasoning level
+    const questionCount = reasoningLevel === 'advanced' ? 3 : reasoningLevel === 'basic' ? 2 : Math.min(3, questions.length);
+    return questions.slice(0, questionCount);
   },
 
-  getStructuredFramework(input: string): string {
+  getStructuredFramework(input: string, reasoningLevel: ReasoningLevel = 'intermediate'): string {
     const analysis = analyzeInput(input);
     
     let framework = `# Research Framework: ${analysis.intent.charAt(0).toUpperCase() + analysis.intent.slice(1)}\n\n`;
@@ -141,15 +170,27 @@ const researchConsulting: ConsultingUtility = {
     }
     
     framework += `## 📊 Success Criteria\n\n`;
-    framework += `- **Comprehensiveness**: All relevant angles covered\n`;
-    framework += `- **Accuracy**: Sources verified and cross-referenced\n`;
-    framework += `- **Actionability**: Clear next steps identified\n`;
-    framework += `- **Clarity**: Complex information made accessible\n\n`;
+    if (reasoningLevel === 'basic') {
+      framework += `- **Simple**: Easy to understand without jargon\n`;
+      framework += `- **Clear**: Main points are obvious\n`;
+      framework += `- **Useful**: You can act on the information\n`;
+    } else if (reasoningLevel === 'advanced') {
+      framework += `- **Rigor**: Methodologically sound with statistical significance\n`;
+      framework += `- **Depth**: Multiple levels of analysis and abstraction\n`;
+      framework += `- **Innovation**: Novel insights and non-obvious connections\n`;
+      framework += `- **Reproducibility**: Clear methodology for validation\n`;
+    } else {
+      framework += `- **Comprehensiveness**: All relevant angles covered\n`;
+      framework += `- **Accuracy**: Sources verified and cross-referenced\n`;
+      framework += `- **Actionability**: Clear next steps identified\n`;
+      framework += `- **Clarity**: Complex information made accessible\n`;
+    }
+    framework += `\n`;
     
     return framework;
   },
 
-  getSuggestedNextSteps(input: string): string[] {
+  getSuggestedNextSteps(input: string, reasoningLevel: ReasoningLevel = 'intermediate'): string[] {
     const analysis = analyzeInput(input);
     const steps: string[] = [];
     
@@ -196,15 +237,23 @@ const researchConsulting: ConsultingUtility = {
  * Focus: Divergent ideas, prompts, metaphor, naming, branding angles
  */
 const creativeConsulting: ConsultingUtility = {
-  getClarifyingQuestions(input: string): string[] {
+  getClarifyingQuestions(input: string, reasoningLevel: ReasoningLevel = 'intermediate'): string[] {
     const analysis = analyzeInput(input);
     const questions: string[] = [];
     
-    // Creative exploration questions
+    // Creative exploration questions adapted to reasoning level
     switch (analysis.intent) {
       case 'creation':
-        questions.push("What emotions or feelings should this evoke in your audience?");
-        questions.push("Are there any style references, competitors, or inspirations you love or want to avoid?");
+        if (reasoningLevel === 'basic') {
+          questions.push("What feeling do you want people to have?");
+          questions.push("Can you show me examples of what you like?");
+        } else if (reasoningLevel === 'advanced') {
+          questions.push("What's the semiotic framework and cultural context for this creation?");
+          questions.push("How can we subvert genre expectations while maintaining accessibility?");
+        } else {
+          questions.push("What emotions or feelings should this evoke in your audience?");
+          questions.push("Are there any style references, competitors, or inspirations you love or want to avoid?");
+        }
         break;
         
       case 'question':
@@ -229,7 +278,7 @@ const creativeConsulting: ConsultingUtility = {
     return questions.slice(0, 3);
   },
 
-  getStructuredFramework(input: string): string {
+  getStructuredFramework(input: string, reasoningLevel: ReasoningLevel = 'intermediate'): string {
     const analysis = analyzeInput(input);
     
     let framework = `# Creative Framework: ${analysis.intent.charAt(0).toUpperCase() + analysis.intent.slice(1)} Exploration\n\n`;
@@ -270,7 +319,7 @@ const creativeConsulting: ConsultingUtility = {
     return framework;
   },
 
-  getSuggestedNextSteps(input: string): string[] {
+  getSuggestedNextSteps(input: string, reasoningLevel: ReasoningLevel = 'intermediate'): string[] {
     const analysis = analyzeInput(input);
     const steps: string[] = [];
     
@@ -313,15 +362,23 @@ const creativeConsulting: ConsultingUtility = {
  * Focus: Process mapping, decision logic, optimization
  */
 const automationConsulting: ConsultingUtility = {
-  getClarifyingQuestions(input: string): string[] {
+  getClarifyingQuestions(input: string, reasoningLevel: ReasoningLevel = 'intermediate'): string[] {
     const analysis = analyzeInput(input);
     const questions: string[] = [];
     
-    // Process-focused questions
+    // Process-focused questions adapted to reasoning level
     switch (analysis.intent) {
       case 'optimization':
-        questions.push("What's the current process, and where do you see the biggest bottlenecks or inefficiencies?");
-        questions.push("What would success look like in terms of time saved, errors reduced, or quality improved?");
+        if (reasoningLevel === 'basic') {
+          questions.push("What takes too long or causes problems in your current process?");
+          questions.push("What would make this easier for you?");
+        } else if (reasoningLevel === 'advanced') {
+          questions.push("What's the current process flow, including edge cases and exception handling?");
+          questions.push("What are the quantifiable KPIs and how do they cascade through the system?");
+        } else {
+          questions.push("What's the current process, and where do you see the biggest bottlenecks or inefficiencies?");
+          questions.push("What would success look like in terms of time saved, errors reduced, or quality improved?");
+        }
         break;
         
       case 'creation':
@@ -346,7 +403,7 @@ const automationConsulting: ConsultingUtility = {
     return questions.slice(0, 3);
   },
 
-  getStructuredFramework(input: string): string {
+  getStructuredFramework(input: string, reasoningLevel: ReasoningLevel = 'intermediate'): string {
     const analysis = analyzeInput(input);
     
     let framework = `# Automation Framework: ${analysis.intent.charAt(0).toUpperCase() + analysis.intent.slice(1)} Optimization\n\n`;
@@ -395,7 +452,7 @@ const automationConsulting: ConsultingUtility = {
     return framework;
   },
 
-  getSuggestedNextSteps(input: string): string[] {
+  getSuggestedNextSteps(input: string, reasoningLevel: ReasoningLevel = 'intermediate'): string[] {
     const analysis = analyzeInput(input);
     const steps: string[] = [];
     
@@ -438,7 +495,7 @@ const automationConsulting: ConsultingUtility = {
  * Default consulting utility for unknown or unsupported agent types
  */
 const defaultConsulting: ConsultingUtility = {
-  getClarifyingQuestions(input: string): string[] {
+  getClarifyingQuestions(input: string, reasoningLevel: ReasoningLevel = 'intermediate'): string[] {
     const analysis = analyzeInput(input);
     
     return [
@@ -450,11 +507,11 @@ const defaultConsulting: ConsultingUtility = {
     ].slice(0, 2);
   },
 
-  getStructuredFramework(input: string): string {
+  getStructuredFramework(input: string, reasoningLevel: ReasoningLevel = 'intermediate'): string {
     return `# General Framework\n\n**Request**: ${input}\n\n## Approach\n\n1. **Understanding**\n   - Clarify requirements and goals\n   - Identify constraints and resources\n\n2. **Analysis**\n   - Break down the problem\n   - Research relevant information\n\n3. **Solution Development**\n   - Generate potential approaches\n   - Evaluate options and trade-offs\n\n4. **Implementation**\n   - Create actionable plan\n   - Define success metrics\n\n## Success Criteria\n\n- Clear understanding of requirements\n- Practical and actionable recommendations\n- Alignment with stated goals\n`;
   },
 
-  getSuggestedNextSteps(_input: string): string[] {
+  getSuggestedNextSteps(_input: string, reasoningLevel: ReasoningLevel = 'intermediate'): string[] {
     return [
       "Clarify the specific goals and requirements",
       "Gather relevant information and context",

@@ -1,4 +1,4 @@
-import { AgentConfig, AgentMessage, AgentResponse } from '../utils/types';
+import { AgentConfig, AgentMessage, AgentResponse, MemoryEntry } from '../utils/types';
 import { MemoryManager } from '../utils/memory-manager';
 import { getAgentConfig } from '../utils/config-utils';
 import { useAgentMemoryWithPreset } from '../utils/memory-hooks';
@@ -7,6 +7,14 @@ import { ContextInjector } from '../utils/context-injection';
 import { getConsultingPatterns } from '../utils/consulting-patterns';
 import { getKnowledgeForInput, formatKnowledgeSection } from '../utils/knowledge-loader';
 import { performWebSearch, formatSearchResults, isSearchAvailable } from '../utils/web-search';
+import { getReasoningLevel, ReasoningLevel } from '../utils/reasoning-depth';
+import { analyzeUserFeedback, adjustReasoningLevelFromFeedback, generateFeedbackAcknowledgment, isContinuationRequest } from '../utils/feedback-analyzer';
+import { sessionTracker } from '../utils/session-tracker';
+import { detectClarificationNeed, generateClarifyingQuestions, createClarificationMemory } from '../utils/clarification-detector';
+import { detectGoalProgress, createGoalProgressMemory, getStatusAwareGreeting, getCongratulationsMessage, getAbandonmentMessage, getProgressMessage } from '../utils/goal-tracker';
+import { generateSessionSummary, detectSummaryRequest, detectSaveSummaryRequest, detectSessionEnding, shouldOfferSummary } from '../utils/result-summarizer';
+import { composeFinalResponse, FinalResponseContext, assessSessionComplexity, shouldOfferMemoryStorage, createSessionDecisionMemory } from '../utils/final-response-composer';
+import { generateResponsePlan, AgentContext, ResponsePlan } from '../utils/reasoning-planner';
 
 export class CreativeAgent {
   private config: AgentConfig;
@@ -29,6 +37,150 @@ export class CreativeAgent {
       const memoryContext = await memory.recallWithPreset(input);
       const contextString = memory.buildContext(memoryContext);
       
+      // Check for previous session and analyze feedback
+      const sessionUserId = userId || 'anonymous';
+      const lastSession = sessionTracker.getLastResponse(sessionUserId);
+      let feedbackAcknowledgment = '';
+      let adjustedReasoningLevel: ReasoningLevel | null = null;
+      let goalProgressMessage = '';
+      let statusGreeting = '';
+      
+      if (lastSession && lastSession.lastAgentId === this.config.id) {
+        const feedback = analyzeUserFeedback(input, lastSession.lastAgentResponse, memoryContext.entries);
+        
+        if (feedback.feedbackMemory) {
+          await memory.saveMemory(
+            feedback.feedbackMemory.input || input,
+            feedback.feedbackMemory.summary || '',
+            feedback.feedbackMemory.summary || '',
+            'pattern',
+            ['feedback', feedback.type, 'user_preference']
+          );
+        }
+        
+        if (feedback.reasoningAdjustment) {
+          const currentLevel = (lastSession.lastReasoningLevel as ReasoningLevel) || 'intermediate';
+          adjustedReasoningLevel = adjustReasoningLevelFromFeedback(currentLevel, feedback);
+          feedbackAcknowledgment = generateFeedbackAcknowledgment(feedback);
+        }
+        
+        if (isContinuationRequest(input, lastSession.lastAgentResponse, feedback)) {
+          routingMetadata = {
+            ...routingMetadata,
+            isContinuation: true,
+            previousContext: lastSession.continuationContext
+          };
+        }
+      }
+      
+      // Check for goal progress updates
+      const goalProgress = detectGoalProgress(input, memoryContext.entries);
+      if (goalProgress.status) {
+        // Create and store goal progress memory
+        const progressMemory = createGoalProgressMemory(input, goalProgress, this.config.id, userId);
+        await memory.saveMemory(
+          progressMemory.input || input,
+          progressMemory.summary || '',
+          progressMemory.context || '',
+          'goal_progress',
+          progressMemory.tags || []
+        );
+        
+        // Generate appropriate progress message
+        const goalSummary = progressMemory.goalSummary || 'your creative project';
+        switch (goalProgress.status) {
+          case 'completed':
+            goalProgressMessage = getCongratulationsMessage(goalSummary);
+            break;
+          case 'abandoned':
+            goalProgressMessage = getAbandonmentMessage(goalSummary);
+            break;
+          case 'in_progress':
+            goalProgressMessage = getProgressMessage(goalSummary);
+            break;
+        }
+      }
+      
+      // Check for status-aware greeting for returning users
+      if (!goalProgressMessage && !feedbackAcknowledgment && !routingMetadata?.isContinuation) {
+        const greeting = getStatusAwareGreeting(memoryContext.entries, this.config.id);
+        if (greeting) {
+          statusGreeting = greeting;
+        }
+      }
+      
+      // Check for session summary request
+      if (detectSummaryRequest(input)) {
+        const sessionSummary = generateSessionSummary(memoryContext.entries, { 
+          agentId: this.config.id,
+          includeMetadata: true 
+        });
+        
+        await this.logInteraction({
+          id: this.generateId(),
+          timestamp: new Date(),
+          agentName: this.config.id,
+          input,
+          output: sessionSummary,
+          memoryUsed: memoryContext.entries.map(m => m.id)
+        });
+        
+        return {
+          success: true,
+          message: sessionSummary,
+          memoryUpdated: false,
+          metadata: {
+            agentId: this.config.id,
+            isSummary: true,
+            sessionAnalysis: true
+          }
+        };
+      }
+      
+      // Check for save summary request
+      if (detectSaveSummaryRequest(input)) {
+        const sessionSummary = generateSessionSummary(memoryContext.entries, { 
+          agentId: this.config.id,
+          includeMetadata: true 
+        });
+        
+        // Store the summary in memory
+        await memory.saveMemory(
+          'Session Summary Request',
+          sessionSummary,
+          `Creative session summary generated on ${new Date().toLocaleDateString()}`,
+          'session_summary',
+          ['summary', 'reflection', this.config.id, 'session_recap']
+        );
+        
+        const confirmationMessage = `✨ **Creative Session Summary Saved!**\n\nI've captured all our creative exploration and stored it in your memory for future inspiration!\n\n${sessionSummary}`;
+        
+        await this.logInteraction({
+          id: this.generateId(),
+          timestamp: new Date(),
+          agentName: this.config.id,
+          input,
+          output: confirmationMessage,
+          memoryUsed: memoryContext.entries.map(m => m.id)
+        });
+        
+        return {
+          success: true,
+          message: confirmationMessage,
+          memoryUpdated: true,
+          metadata: {
+            agentId: this.config.id,
+            isSummary: true,
+            summarySaved: true
+          }
+        };
+      }
+      
+      // Determine reasoning level
+      const reasoningLevel: ReasoningLevel = adjustedReasoningLevel ||
+        routingMetadata?.reasoningLevel || 
+        getReasoningLevel(input, memoryContext.entries, 'creative');
+      
       // Get consulting patterns for creative agent
       const consulting = getConsultingPatterns('creative');
       
@@ -41,32 +193,93 @@ export class CreativeAgent {
         userId
       });
       
-      // Analyze creative task and calculate confidence
-      const taskType = this.identifyTaskType(input);
-      const confidence = this.calculateTaskConfidence(input, taskType);
+      // Check if input needs clarification (unless it's a continuation or feedback response)
+      if (!routingMetadata?.isContinuation && !routingMetadata?.awaitingClarification && !adjustedReasoningLevel) {
+        const clarificationResult = detectClarificationNeed(input, memoryContext.entries, contextString.length > 0);
+        
+        if (clarificationResult.needsClarification) {
+          // Store clarification request in memory
+          const clarificationMemory = createClarificationMemory(input, clarificationResult, this.config.id);
+          await memory.saveMemory(
+            clarificationMemory.input || input,
+            clarificationMemory.summary || '',
+            clarificationMemory.summary || '',
+            'pattern',
+            ['clarification_requested', clarificationResult.reason || 'vague', 'creative']
+          );
+          
+          // Generate creative-specific clarification response
+          const response = await this.handleClarificationRequest(input, clarificationResult, memoryContext, contextString);
+          
+          await this.logInteraction({
+            id: this.generateId(),
+            timestamp: new Date(),
+            agentName: this.config.id,
+            input,
+            output: response.message,
+            memoryUsed: memoryContext.entries.map(m => m.id)
+          });
+          
+          return {
+            success: true,
+            message: response.message,
+            memoryUpdated: true,
+            metadata: {
+              agentId: this.config.id,
+              awaitingClarification: true,
+              clarificationReason: clarificationResult.reason,
+              confidence: clarificationResult.confidence
+            }
+          };
+        }
+      }
       
-      // Build comprehensive creative response
-      const response = await this.buildConsultingResponse(input, {
-        confidence,
+      // Generate dynamic response plan
+      const agentContext: AgentContext = {
+        agentId: this.config.id,
+        userId,
+        memoryEntries: memoryContext.entries,
+        lastResponse: lastSession?.lastAgentResponse,
+        routingMetadata
+      };
+      
+      const responsePlan = generateResponsePlan(input, agentContext);
+      
+      // Use adjusted reasoning level if available, otherwise use plan's level
+      const finalReasoningLevel: ReasoningLevel = adjustedReasoningLevel || responsePlan.reasoningLevel;
+      
+      // Build dynamic creative response based on plan
+      const response = await this.buildPlannedCreativeResponse(input, responsePlan, {
         consulting,
         injectedContext,
         memoryContext,
         contextString,
-        taskType,
-        routingMetadata
+        routingMetadata,
+        reasoningLevel: finalReasoningLevel,
+        feedbackAcknowledgment,
+        goalProgressMessage,
+        statusGreeting
       });
       
+      // Store session data for feedback tracking
+      sessionTracker.setLastResponse(
+        sessionUserId,
+        this.config.id,
+        response,
+        finalReasoningLevel,
+        { taskType: responsePlan.intent, confidence: responsePlan.confidence }
+      );
+      
       // Store interaction using centralized utility with goal tracking
-      const storedTaskType = this.identifyTaskType(input);
-      const goalTag = this.extractGoalTag(input, storedTaskType);
+      const goalTag = `${responsePlan.intent}_${responsePlan.domain.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).slice(0, 3).join('_').toLowerCase()}`;
       
       // Save as goal type with appropriate tags
       await memory.saveMemory(
         input, 
         response, 
-        `creative_goal: ${goalTag}`,
+        `creative_goal: ${goalTag} | reasoning: ${finalReasoningLevel}`,
         'goal',
-        ['creative', storedTaskType, 'brainstorming', 'creative_goal']
+        ['creative', responsePlan.intent, responsePlan.domain.toLowerCase(), 'creative_goal', `reasoning_${finalReasoningLevel}`]
       );
 
       await this.logInteraction({
@@ -78,16 +291,54 @@ export class CreativeAgent {
         memoryUsed: memoryContext.entries.map(m => m.id)
       });
 
+      // Compose final response with thoughtful closing
+      const recentGoal = await this.getRecentGoal(memoryContext.entries);
+      const isSessionEnding = detectSessionEnding(input);
+      const shouldOfferSummaryFlag = shouldOfferSummary(memoryContext.entries);
+      
+      const finalResponseContext: FinalResponseContext = {
+        recentGoal,
+        reasoningLevel: finalReasoningLevel,
+        feedbackType: null, // TODO: Implement feedback analysis for creative agent
+        isSessionEnd: isSessionEnding,
+        agentPersonality: 'creative',
+        knowledgeDomain: responsePlan.domain,
+        userInput: input,
+        hasMemoryContext: memoryContext.entries.length > 0,
+        sessionComplexity: assessSessionComplexity({
+          recentGoal,
+          reasoningLevel: finalReasoningLevel,
+          feedbackType: null, // TODO: Implement feedback analysis for creative agent
+          isSessionEnd: isSessionEnding,
+          agentPersonality: 'creative',
+          knowledgeDomain: responsePlan.domain,
+          userInput: input,
+          hasMemoryContext: memoryContext.entries.length > 0
+        })
+      };
+
+      const finalClosing = composeFinalResponse('creative', finalResponseContext, {
+        includeFollowUp: !isSessionEnding,
+        includeMemoryOffer: shouldOfferMemoryStorage(finalResponseContext) || shouldOfferSummaryFlag
+      });
+
+      const finalResponse = response + (finalClosing ? '\n\n---\n\n' + finalClosing : '');
+
       return {
         success: true,
-        message: response,
+        message: finalResponse,
         memoryUpdated: true,
         metadata: {
           agentId: this.config.id,
-          confidence,
-          consultingEnhanced: true,
+          confidence: responsePlan.confidence,
           hasMemoryContext: memoryContext.entries.length > 0,
-          taskType
+          intentType: responsePlan.intent,
+          reasoningLevel: responsePlan.reasoningLevel,
+          domain: responsePlan.domain,
+          responseStrategy: responsePlan.responseStrategy,
+          toolsUsed: responsePlan.tools,
+          dynamicallyPlanned: true,
+          summaryOffered: shouldOfferSummaryFlag && (isSessionEnding || Math.random() < 0.3)
         }
       };
     } catch (error) {
@@ -126,95 +377,147 @@ export class CreativeAgent {
     return response;
   }
 
-  private async buildConsultingResponse(input: string, options: {
-    confidence: number;
+  private async buildPlannedCreativeResponse(input: string, plan: ResponsePlan, options: {
     consulting: any;
     injectedContext: any;
     memoryContext: any;
     contextString: string;
-    taskType: string;
     routingMetadata?: any;
+    reasoningLevel: ReasoningLevel;
+    feedbackAcknowledgment?: string;
+    goalProgressMessage?: string;
+    statusGreeting?: string;
   }): Promise<string> {
-    const { confidence, consulting, injectedContext, memoryContext, contextString, taskType, routingMetadata } = options;
+    // Execute plan steps dynamically for creative responses
+    return await this.executeCreativePlanSteps(input, plan, options);
+  }
+
+  private async executeCreativePlanSteps(input: string, plan: ResponsePlan, options: {
+    consulting: any;
+    injectedContext: any;
+    memoryContext: any;
+    contextString: string;
+    routingMetadata?: any;
+    reasoningLevel: ReasoningLevel;
+    feedbackAcknowledgment?: string;
+    goalProgressMessage?: string;
+    statusGreeting?: string;
+  }): Promise<string> {
+    const { consulting, injectedContext, memoryContext, contextString, routingMetadata, reasoningLevel, feedbackAcknowledgment, goalProgressMessage, statusGreeting } = options;
     const sections: string[] = [];
 
-    // 1. Creative Introduction (Creative Agent Voice)
-    const suppressIntro = routingMetadata?.suppressIntro || routingMetadata?.stayInThread;
-    if (!suppressIntro) {
-      if (injectedContext.personalizedIntro) {
-        sections.push(`✨ **Creative Exploration**: ${injectedContext.personalizedIntro}`);
-      } else {
-        sections.push(`✨ **Creative Exploration**: Let's dive into some innovative thinking and bring your vision to life.`);
-      }
-    }
-
-    // Add memory context if relevant
-    if (injectedContext.memoryAwareness) {
-      sections.push(injectedContext.memoryAwareness);
-    }
-
-    // 2. Creative Questions (for medium confidence)
-    if (confidence >= 0.3 && confidence < 0.7) {
-      const questions = consulting.getClarifyingQuestions(input);
-      if (questions.length > 0) {
-        sections.push(`## 🎨 Creative Direction\n\nTo spark the most brilliant ideas, let me understand:\n\n${questions.map((q: string, i: number) => `${i + 1}. ${q}`).join('\n')}`);
-      }
-    }
-
-    // 3. Creative Framework
-    const framework = consulting.getStructuredFramework(input);
-    sections.push(framework);
-
-    // 4. Core Creative Response (if high confidence)
-    if (confidence >= 0.7) {
-      const coreResponse = await this.generateResponse(input, contextString);
-      // Clean up the response
-      const cleanResponse = coreResponse.split('\n\n📚')[0]; // Remove memory section if present
-      sections.push(`## 🌟 Creative Ideas\n\n${cleanResponse}`);
-    }
-
-    // 5. Memory-Driven Inspiration (if available)
-    if (memoryContext.entries.length > 0 && contextString.trim()) {
-      const memoryInsights = this.formatCreativeInsights(memoryContext.entries.slice(0, 2));
-      if (memoryInsights) {
-        sections.push(`## 🧠 Building on Previous Ideas\n\n${memoryInsights}`);
-      }
-    }
-
-    // 6. Domain Knowledge Enhancement
-    const knowledgeModules = await getKnowledgeForInput(input);
-    if (knowledgeModules.length > 0) {
-      const knowledgeSection = formatKnowledgeSection(knowledgeModules);
-      if (knowledgeSection) {
-        sections.push(knowledgeSection);
-      }
-    }
-
-    // 7. Web Search Enhancement (when appropriate)
-    try {
-      const searchAvailable = await isSearchAvailable();
-      if (searchAvailable) {
-        const searchResponse = await performWebSearch(input, 'creative');
-        if (searchResponse && searchResponse.results.length > 0) {
-          const searchSection = formatSearchResults(searchResponse);
-          if (searchSection) {
-            sections.push(searchSection);
+    // Execute each step in the plan with creative flair
+    for (const step of plan.planSteps) {
+      switch (step) {
+        case 'Acknowledge feedback':
+          if (feedbackAcknowledgment) {
+            sections.push(feedbackAcknowledgment);
+            sections.push('');
           }
-        }
+          break;
+
+        case 'Address goal progress':
+          if (goalProgressMessage) {
+            sections.push(goalProgressMessage);
+            sections.push('');
+          }
+          break;
+
+        case 'Ask clarifying questions':
+          if (plan.tools.askClarifyingQuestions) {
+            const questions = consulting.getClarifyingQuestions(input, reasoningLevel);
+            if (questions.length > 0) {
+              const questionHeader = this.getCreativeQuestionHeader(reasoningLevel);
+              sections.push(`## 💭 Creative Direction\n\n${questionHeader}\n\n${questions.map((q: string, i: number) => `${i + 1}. ${q}`).join('\n')}`);
+            }
+          }
+          break;
+
+        case 'Reference relevant memory':
+        case 'Integrate memory context':
+        case 'Build on previous context':
+        case 'Connect to previous work':
+          if (plan.tools.useMemory && memoryContext.entries.length > 0 && contextString.trim()) {
+            const memoryInsights = this.formatCreativeInsights(memoryContext.entries.slice(0, 2));
+            if (memoryInsights && memoryInsights.trim().length > 0) {
+              sections.push(`## 💡 Previous Creative Inspiration\n\n${memoryInsights}`);
+            }
+          }
+          break;
+
+        case 'Provide initial guidance':
+        case 'Provide direct response':
+          sections.push(await this.generateCreativeDirectResponse(input, plan, contextString));
+          break;
+
+        case 'Establish framework':
+        case 'Provide structured analysis':
+          sections.push(await this.generateCreativeFramework(input, plan, consulting, reasoningLevel));
+          break;
+
+        case 'Apply domain knowledge':
+        case 'Inject domain expertise':
+        case 'Provide expert insights':
+          if (plan.tools.useKnowledge) {
+            const knowledgeSection = await this.generateCreativeKnowledgeSection(input);
+            if (knowledgeSection) {
+              sections.push(knowledgeSection);
+            }
+          }
+          break;
+
+        case 'Enhance with search results':
+        case 'Supplement with current data':
+          if (plan.tools.useSearch) {
+            const searchSection = await this.generateCreativeSearchSection(input);
+            if (searchSection) {
+              sections.push(searchSection);
+            }
+          }
+          break;
+
+        case 'Suggest next steps':
+          const nextSteps = consulting.getSuggestedNextSteps(input, reasoningLevel);
+          if (nextSteps.length > 0) {
+            sections.push(`## 🚀 Creative Next Steps\n\n${nextSteps.map((step: string, i: number) => `${i + 1}. **${step}**`).join('\n')}`);
+          }
+          break;
+
+        case 'Guide exploration':
+        case 'Encourage iteration':
+          sections.push(this.generateCreativeExplorationGuidance(input, plan));
+          break;
+
+        case 'Clarify direction':
+          if (plan.confidence < 0.7) {
+            sections.push(this.generateCreativeDirectionClarification(input, plan));
+          }
+          break;
       }
-    } catch (error) {
-      console.warn('Web search failed for creative agent:', error);
-      // Continue without search results - graceful degradation
     }
 
-    // 8. Creative Next Steps
-    const nextSteps = consulting.getSuggestedNextSteps(input);
-    if (nextSteps.length > 0) {
-      sections.push(`## 🚀 Creative Next Steps\n\n${nextSteps.map((step: string, i: number) => `${i + 1}. **${step}**`).join('\n')}`);
+    // Add contextual creative introduction if not suppressed
+    const suppressIntro = routingMetadata?.suppressIntro || routingMetadata?.stayInThread || routingMetadata?.isContinuation;
+    if (!suppressIntro && sections.length > 0) {
+      const intro = this.generateCreativeIntroduction(plan, injectedContext, routingMetadata);
+      sections.unshift(intro);
     }
 
-    // 9. Creative Agent Closing (Inspirational & Collaborative)
-    const closingOptions = [
+    // Add status greeting if available
+    if (statusGreeting && !routingMetadata?.isContinuation) {
+      sections.unshift(statusGreeting, '');
+    }
+
+    // Add inspirational creative closing
+    const closingOptions = reasoningLevel === 'basic' ? [
+      "What sounds fun to you? Let's create something!",
+      "Which idea do you like best? I can help make it happen.",
+      "Ready to start creating? Pick what excites you!"
+    ] : reasoningLevel === 'advanced' ? [
+      "Which conceptual framework resonates with your artistic vision?",
+      "I can explore the theoretical underpinnings or dive into experimental approaches.",
+      "Ready to challenge conventions and create something paradigm-shifting?"
+    ] : [
       "What direction feels most exciting to you? I'm ready to explore any creative rabbit hole!",
       "Which of these creative avenues is calling to you? Let's make something amazing together.",
       "I'm energized by these possibilities! What creative challenge should we tackle first?"
@@ -223,6 +526,80 @@ export class CreativeAgent {
     sections.push(`---\n\n🎯 ${closing}`);
 
     return sections.join('\n\n');
+  }
+
+  private getCreativeQuestionHeader(reasoningLevel: ReasoningLevel): string {
+    switch (reasoningLevel) {
+      case 'basic':
+        return "To spark the best ideas, I'd love to know:";
+      case 'advanced':
+        return "To craft sophisticated creative solutions, please clarify:";
+      default:
+        return "To channel the most inspiring creativity, help me understand:";
+    }
+  }
+
+  private generateCreativeIntroduction(plan: ResponsePlan, injectedContext: any, routingMetadata?: any): string {
+    if (routingMetadata?.isContinuation) {
+      return '✨ **Continuing our creative journey**...';
+    }
+    
+    if (injectedContext.personalizedIntro) {
+      return `✨ **Creative Exploration**: ${injectedContext.personalizedIntro}`;
+    }
+    
+    // Dynamic intro based on plan
+    switch (plan.responseStrategy) {
+      case 'clarification_first':
+        return '✨ **Creative Exploration**: I need to understand your creative vision to spark the best ideas!';
+      case 'structured_framework':
+        return '✨ **Creative Exploration**: Let\'s build a systematic approach to unlock your creativity.';
+      case 'guided_discovery':
+        return '✨ **Creative Exploration**: Let\'s embark on a creative journey of discovery together!';
+      default:
+        return '✨ **Creative Exploration**: Let\'s unleash some innovative ideas together!';
+    }
+  }
+
+  private async generateCreativeDirectResponse(input: string, plan: ResponsePlan, contextString: string): Promise<string> {
+    const response = await this.generateResponse(input, contextString);
+    return `## 🎨 Creative Concepts\n\n${response}`;
+  }
+
+  private async generateCreativeFramework(input: string, plan: ResponsePlan, consulting: any, reasoningLevel: ReasoningLevel): Promise<string> {
+    const framework = consulting.getStructuredFramework(input, reasoningLevel);
+    return framework;
+  }
+
+  private async generateCreativeKnowledgeSection(input: string): Promise<string | null> {
+    const knowledgeModules = await getKnowledgeForInput(input);
+    if (knowledgeModules.length > 0) {
+      return formatKnowledgeSection(knowledgeModules);
+    }
+    return null;
+  }
+
+  private async generateCreativeSearchSection(input: string): Promise<string | null> {
+    try {
+      const searchAvailable = await isSearchAvailable();
+      if (searchAvailable) {
+        const searchResponse = await performWebSearch(input, 'creative');
+        if (searchResponse && searchResponse.results.length > 0) {
+          return formatSearchResults(searchResponse);
+        }
+      }
+    } catch (error) {
+      console.warn('Web search failed for creative agent:', error);
+    }
+    return null;
+  }
+
+  private generateCreativeExplorationGuidance(input: string, plan: ResponsePlan): string {
+    return `## 🌟 Creative Exploration\n\nYour ${plan.domain} creative goal opens up exciting possibilities! The ${plan.intent} approach suggests we should explore innovative angles and push creative boundaries.`;
+  }
+
+  private generateCreativeDirectionClarification(input: string, plan: ResponsePlan): string {
+    return `## 🎯 Creative Direction\n\nTo unleash the most inspiring creativity for your ${plan.domain} project, could you help me understand the specific creative direction or style you're envisioning?`;
   }
 
   private formatCreativeInsights(entries: any[]): string {
@@ -652,6 +1029,54 @@ Want me to help you map out the user journey and identify key pain points?`;
     return cleanSubject || taskType;
   }
 
+  private async handleClarificationRequest(
+    input: string,
+    clarificationResult: any,
+    memoryContext: any,
+    contextString: string
+  ): Promise<{ message: string }> {
+    const questions = generateClarifyingQuestions(clarificationResult, 'creative', input);
+    
+    // Create creative-focused clarification message
+    let clarificationMessage = '✨ **Creative Agent**: I\'m excited to help bring your creative vision to life! But I need some more details to spark the perfect ideas.\n\n';
+    
+    // Add reason-specific context for creative work
+    switch (clarificationResult.reason) {
+      case 'vague_input':
+        clarificationMessage += 'Your creative request has endless possibilities - could you help me focus on the specific type of creative work you envision?\n\n';
+        break;
+      case 'missing_subject':
+        clarificationMessage += 'I\'m ready to get creative, but I\'m not sure what project or concept you\'d like me to focus on.\n\n';
+        break;
+      case 'underspecified_goal':
+        clarificationMessage += 'I can see you want something creative, but I\'m not clear on the style, format, or outcome you have in mind.\n\n';
+        break;
+      case 'ambiguous_context':
+        clarificationMessage += 'I need more creative direction to understand what would inspire you most.\n\n';
+        break;
+    }
+    
+    // Add creative-specific clarifying questions
+    if (questions.length > 0) {
+      clarificationMessage += 'To create something amazing, could you tell me:\n\n';
+      questions.forEach((question, index) => {
+        clarificationMessage += `• ${question}\n`;
+      });
+      clarificationMessage += '\n';
+    }
+    
+    // Add memory context if available
+    if (contextString && contextString.trim()) {
+      clarificationMessage += '🎨 **Based on our creative journey**, I can build on the ideas we\'ve already explored. Feel free to reference previous concepts or take our creativity in a new direction!\n\n';
+    }
+    
+    clarificationMessage += 'Once I understand your creative vision, I can brainstorm innovative ideas, craft compelling content, and help make your imagination a reality!';
+    
+    return {
+      message: clarificationMessage
+    };
+  }
+
   private async logInteraction(message: AgentMessage): Promise<void> {
     await this.memoryManager.logMessage(message);
   }
@@ -662,5 +1087,37 @@ Want me to help you map out the user journey and identify key pain points?`;
 
   getConfig(): AgentConfig {
     return { ...this.config };
+  }
+
+  // Helper methods for Final Response Composer integration
+  private async getRecentGoal(memoryEntries: MemoryEntry[]): Promise<string | undefined> {
+    const goalEntries = memoryEntries
+      .filter(entry => entry.type === 'goal' || entry.type === 'goal_progress')
+      .sort((a, b) => b.lastAccessed.getTime() - a.lastAccessed.getTime());
+    
+    return goalEntries.length > 0 ? goalEntries[0].goalSummary || goalEntries[0].summary : undefined;
+  }
+
+  private extractKnowledgeDomain(input: string): string | undefined {
+    const lowerInput = input.toLowerCase();
+    
+    // Creative domain detection
+    if (lowerInput.includes('story') || lowerInput.includes('narrative') || lowerInput.includes('writing')) {
+      return 'storytelling';
+    }
+    if (lowerInput.includes('design') || lowerInput.includes('visual') || lowerInput.includes('art')) {
+      return 'design';
+    }
+    if (lowerInput.includes('brand') || lowerInput.includes('naming') || lowerInput.includes('identity')) {
+      return 'branding';
+    }
+    if (lowerInput.includes('content') || lowerInput.includes('copy') || lowerInput.includes('marketing')) {
+      return 'content creation';
+    }
+    if (lowerInput.includes('idea') || lowerInput.includes('brainstorm') || lowerInput.includes('concept')) {
+      return 'ideation';
+    }
+    
+    return undefined;
   }
 }
