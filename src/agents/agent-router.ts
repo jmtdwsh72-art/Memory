@@ -13,6 +13,8 @@ import { RoutingStateManager, RoutingDecision } from '../utils/routing-state-man
 import { getReasoningLevel, detectSimplificationRequest, getReasoningPromptModifier } from '../utils/reasoning-depth';
 import { sessionTracker } from '../utils/session-tracker';
 import { detectClarificationNeed, generateClarifyingQuestions, createClarificationMemory } from '../utils/clarification-detector';
+import { gptAgentMap } from '../utils/gpt-agent-map';
+import { sendToGPTAssistant } from '../utils/gpt-assistant-handler';
 
 export class RouterAgent {
   private config: AgentConfig;
@@ -94,9 +96,35 @@ export class RouterAgent {
       // Check for recent routing patterns to prevent loops
       const recentRoutings = await this.checkRecentRoutings(userId, input);
       
+      // Check for session continuity first
+      const shouldContinue = sessionTracker.shouldContinueWithLastAssistant(userId || 'anonymous', input);
+      
+      if (shouldContinue) {
+        const lastAssistantInfo = sessionTracker.getLastAssistantInfo(userId || 'anonymous');
+        if (lastAssistantInfo) {
+          console.log(`[RouterAgent] Continuing with last assistant: ${lastAssistantInfo.agentType} (${lastAssistantInfo.assistantId})`);
+          return await this.continueWithLastAssistant(input, userId, lastAssistantInfo, contextString);
+        }
+      }
+      
       // Enhanced intent analysis with memory awareness
       const intentResult = this.analyzeUserIntent(input);
       const agentType = this.determineAgentType(input);
+      
+      // Check routing confidence for potential re-routing
+      const routingConfidence = intentResult.confidence;
+      const highConfidenceThreshold = 0.8;
+      
+      // If we have a previous assistant and current confidence is low, consider staying
+      const lastAssistantInfo = sessionTracker.getLastAssistantInfo(userId || 'anonymous');
+      if (lastAssistantInfo && routingConfidence < highConfidenceThreshold) {
+        console.log(`[RouterAgent] Low routing confidence (${routingConfidence}), considering continuation`);
+        // Only re-route if there's high confidence in a different topic
+        if (lastAssistantInfo.agentType === agentType || routingConfidence < 0.6) {
+          console.log(`[RouterAgent] Staying with previous assistant: ${lastAssistantInfo.agentType}`);
+          return await this.continueWithLastAssistant(input, userId, lastAssistantInfo, contextString);
+        }
+      }
       
       // Check if input needs clarification before proceeding
       const clarificationResult = detectClarificationNeed(input, memoryContext.entries, contextString.length > 0);
@@ -158,10 +186,9 @@ export class RouterAgent {
       
       // Handle routing based on state manager decision
       if (routingDecision.shouldRoute && routingDecision.confidence >= 0.7) {
-        // High confidence - route directly to target agent
-        const targetAgent = this.subAgents.get(routingDecision.targetAgent);
-        if (targetAgent) {
-          response = await this.routeToAgentWithHandoff(routingDecision.targetAgent, targetAgent, input, userId, {
+        // High confidence - route directly to GPT assistant
+        console.log(`[RouterAgent] Routing to GPT assistant: ${routingDecision.targetAgent}`);
+        response = await this.routeToGPTAssistant(routingDecision.targetAgent, input, userId, {
             originalInput: input,
             contextSummary: contextString,
             routingReason: routingDecision.reason,
@@ -172,14 +199,10 @@ export class RouterAgent {
             dampingApplied: routingDecision.dampingApplied,
             reasoningLevel
           });
-        } else {
-          response = await this.handleDirectResponse(input, contextString);
-        }
       } else if (!routingDecision.shouldRoute && routingDecision.targetAgent === currentAgent) {
-        // Staying in current agent - pass through without routing
-        const targetAgent = this.subAgents.get(routingDecision.targetAgent);
-        if (targetAgent) {
-          response = await this.routeToAgent(routingDecision.targetAgent, targetAgent, input, userId, {
+        // Staying in current agent - route to same GPT assistant
+        console.log(`[RouterAgent] Staying in current GPT assistant: ${routingDecision.targetAgent}`);
+        response = await this.routeToGPTAssistant(routingDecision.targetAgent, input, userId, {
             originalInput: input,
             contextSummary: contextString,
             routingReason: routingDecision.reason,
@@ -190,9 +213,6 @@ export class RouterAgent {
             stayInThread: true,
             reasoningLevel
           });
-        } else {
-          response = await this.handleDirectResponse(input, contextString);
-        }
       } else if (routingDecision.confidence >= 0.3 && routingDecision.confidence < 0.7) {
         // Medium confidence - prefer clarification over routing
         response = await this.handleClarificationRequest(input, {
@@ -201,10 +221,9 @@ export class RouterAgent {
           reasoning: routingDecision.reason
         });
       } else if (agentType === 'welcome' && (this.isOnboardingQuery(input) || routingDecision.confidence < 0.3)) {
-        // Low confidence or onboarding - route to welcome agent
-        const targetAgent = this.subAgents.get('welcome');
-        if (targetAgent) {
-          response = await this.routeToAgent('welcome', targetAgent, input, userId, {
+        // Low confidence or onboarding - route to welcome GPT assistant
+        console.log(`[RouterAgent] Routing to welcome GPT assistant`);
+        response = await this.routeToGPTAssistant('welcome', input, userId, {
             originalInput: input,
             contextSummary: contextString,
             routingReason: 'onboarding or low confidence',
@@ -213,9 +232,6 @@ export class RouterAgent {
             bypassedClarification: true,
             reasoningLevel
           });
-        } else {
-          response = await this.handleDirectResponse(input, contextString);
-        }
       } else {
         // Fallback to direct router response instead of welcome agent
         response = await this.handleDirectResponse(input, contextString);
@@ -286,6 +302,152 @@ export class RouterAgent {
       return {
         success: false,
         message: `Router error: ${errorObj.message}`
+      };
+    }
+  }
+
+  private async continueWithLastAssistant(
+    input: string,
+    userId?: string,
+    assistantInfo?: { assistantId: string; threadId?: string; agentType: string },
+    contextString?: string
+  ): Promise<AgentResponse> {
+    if (!assistantInfo) {
+      throw new Error('No assistant info provided for continuation');
+    }
+
+    try {
+      console.log(`🔄 Continuing conversation with ${assistantInfo.agentType} assistant`);
+      
+      // Send to GPT assistant with existing thread
+      const gptResponse = await sendToGPTAssistant({
+        assistantId: assistantInfo.assistantId,
+        userMessage: input,
+        userId,
+        agentType: assistantInfo.agentType,
+        threadId: assistantInfo.threadId, // Continue existing thread
+        topic: input,
+        metadata: {
+          agentType: assistantInfo.agentType,
+          continuation: true,
+          threadContinued: !!assistantInfo.threadId,
+          routedBy: 'router',
+          reasoningLevel: 'standard',
+          sessionId: userId,
+          timestamp: new Date().toISOString()
+        }
+      });
+      
+      console.log(`✅ GPT Assistant continuation response received for ${assistantInfo.agentType}`);
+      
+      // Update session tracker
+      if (userId && gptResponse.success) {
+        sessionTracker.setLastResponse(
+          userId,
+          assistantInfo.agentType,
+          gptResponse.message,
+          'standard',
+          { continuation: true },
+          assistantInfo.assistantId,
+          gptResponse.threadId || assistantInfo.threadId
+        );
+      }
+      
+      return {
+        success: gptResponse.success,
+        message: gptResponse.message,
+        agentName: assistantInfo.agentType,
+        memoryUpdated: true,
+        metadata: {
+          agentId: assistantInfo.agentType,
+          agentName: assistantInfo.agentType,
+          assistantId: assistantInfo.assistantId,
+          threadContinued: true,
+          continuation: true,
+          routedBy: 'continuation',
+          timestamp: new Date().toISOString()
+        }
+      };
+      
+    } catch (error) {
+      console.error(`Error continuing with ${assistantInfo.agentType} assistant:`, error);
+      return {
+        success: false,
+        message: `Error continuing conversation: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+
+  private async routeToGPTAssistant(
+    agentType: string,
+    input: string,
+    userId?: string,
+    routingContext?: any
+  ): Promise<AgentResponse> {
+    try {
+      // Get the GPT assistant ID from the map
+      const assistantId = gptAgentMap[agentType as keyof typeof gptAgentMap];
+      
+      if (!assistantId) {
+        console.error(`No GPT assistant configured for agent type: ${agentType}`);
+        return {
+          success: false,
+          message: `Agent type ${agentType} is not configured.`
+        };
+      }
+      
+      console.log(`🤖 Routing to GPT Assistant: ${assistantId} for agent type: ${agentType}`);
+      
+      // Send to GPT assistant with memory context
+      const gptResponse = await sendToGPTAssistant({
+        assistantId,
+        userMessage: input,
+        userId,
+        agentType, // Pass agent type directly
+        topic: input, // Use input as topic for context fetching
+        metadata: {
+          agentType,
+          routingContext,
+          reasoningLevel: routingContext?.reasoningLevel || 'standard',
+          routedBy: 'router',
+          sessionId: userId,
+          timestamp: new Date().toISOString()
+        }
+      });
+      
+      console.log(`✅ GPT Assistant response received for ${agentType}`);
+      
+      // Update session tracker with new assistant info
+      if (userId && gptResponse.success) {
+        sessionTracker.setLastResponse(
+          userId,
+          agentType,
+          gptResponse.message,
+          routingContext?.reasoningLevel || 'standard',
+          routingContext,
+          assistantId,
+          gptResponse.threadId
+        );
+      }
+      
+      return {
+        success: gptResponse.success,
+        message: gptResponse.message,
+        agentName: agentType,
+        metadata: {
+          ...gptResponse.metadata,
+          agentId: agentType,
+          agentName: agentType,
+          routedBy: 'router',
+          newConversation: true
+        }
+      };
+      
+    } catch (error) {
+      console.error(`Error routing to GPT assistant ${agentType}:`, error);
+      return {
+        success: false,
+        message: `Failed to connect to ${agentType} assistant.`
       };
     }
   }

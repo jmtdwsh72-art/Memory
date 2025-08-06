@@ -226,5 +226,261 @@
       "research latest developments",
       "learning_goal"
     ]
+  },
+  {
+    "id": "20d5680d-70a0-4cee-9007-40736f7cf17e",
+    "agentId": "research",
+    "userId": "memory-reader-test-1754490426659",
+    "type": "goal",
+    "input": "I want to build a SaaS project management tool",
+    "summary": "build a SaaS project management tool. Your goal is to help small teams collaborate better and track",
+    "context": "Extracted from research response: build a SaaS project management tool. Your goal is to help small teams collaborate better and track",
+    "relevanceScore": 1.2,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T14:27:06.662Z",
+    "createdAt": "2025-08-06T14:27:06.662Z",
+    "tags": [
+      "source:research",
+      "type:goal",
+      "pattern:explicit_want",
+      "confidence:90",
+      "build",
+      "saas",
+      "project"
+    ],
+    "metadata": {
+      "originatingAssistant": "research",
+      "sessionId": "session-0",
+      "sourceConfidence": 0.9,
+      "extractionPattern": "explicit_want",
+      "originalResponse": "I understand you want to build a SaaS project management tool. Your goal is to help small teams collaborate better and track their progress efficiently. You mentioned you prefer using React and Node.js, which are excellent choices for this type of application. From what I understand, you're looking to create a scalable solution that addresses team collaboration challenges in remote work environments.",
+      "timestamp": "2025-08-06T14:27:06.661Z",
+      "assistantId": "asst_research_test",
+      "threadId": "thread-0"
+    }
+  },
+  {
+    "id": "4d74a74a-5a08-4935-b4e2-48f28ad75b7f",
+    "agentId": "research",
+    "userId": "memory-reader-test-1754490426659",
+    "type": "summary",
+    "input": "I want to build a SaaS project management tool",
+    "summary": "you're looking to create a scalable solution that addresses team collaboration challenges in remote work environments",
+    "context": "Extracted from research response: you're looking to create a scalable solution that addresses team collaboration challenges in remote ",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T14:27:06.791Z",
+    "createdAt": "2025-08-06T14:27:06.791Z",
+    "tags": [
+      "source:research",
+      "type:summary",
+      "pattern:understanding_recap",
+      "confidence:80",
+      "you're",
+      "looking",
+      "create"
+    ],
+    "metadata": {
+      "originatingAssistant": "research",
+      "sessionId": "session-0",
+      "sourceConfidence": 0.8,
+      "extractionPattern": "understanding_recap",
+      "originalResponse": "I understand you want to build a SaaS project management tool. Your goal is to help small teams collaborate better and track their progress efficiently. You mentioned you prefer using React and Node.js, which are excellent choices for this type of application. From what I understand, you're looking to create a scalable solution that addresses team collaboration challenges in remote work environments.",
+      "timestamp": "2025-08-06T14:27:06.791Z",
+      "assistantId": "asst_research_test",
+      "threadId": "thread-0"
+    }
+  },
+  {
+    "id": "2939d761-d08f-4379-a6ae-bb0352e07fb4",
+    "agentId": "research",
+    "userId": "memory-reader-test-1754490426659",
+    "type": "summary",
+    "input": "I want to build a SaaS project management tool",
+    "summary": "using React and Node.js, which are excellent choices for this type of application. From what I under",
+    "context": "Extracted from research response: using React and Node.js, which are excellent choices for this type of application. From what I under",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T14:27:06.811Z",
+    "createdAt": "2025-08-06T14:27:06.811Z",
+    "tags": [
+      "source:research",
+      "type:summary",
+      "pattern:preference",
+      "confidence:70",
+      "using",
+      "react",
+      "node.js,"
+    ],
+    "metadata": {
+      "originatingAssistant": "research",
+      "sessionId": "session-0",
+      "sourceConfidence": 0.7,
+      "extractionPattern": "preference",
+      "originalResponse": "I understand you want to build a SaaS project management tool. Your goal is to help small teams collaborate better and track their progress efficiently. You mentioned you prefer using React and Node.js, which are excellent choices for this type of application. From what I understand, you're looking to create a scalable solution that addresses team collaboration challenges in remote work environments.",
+      "timestamp": "2025-08-06T14:27:06.811Z",
+      "assistantId": "asst_research_test",
+      "threadId": "thread-0"
+    }
+  },
+  {
+    "id": "f9c09aa9-3f92-4192-95c2-77a6fcd58dec",
+    "agentId": "research",
+    "userId": "memory-reader-test-1754490426659",
+    "type": "summary",
+    "input": "I want to build a SaaS project management tool",
+    "summary": "you prefer using React and Node.js, which are excellent choices for this type of application. From what I understand, you're looking to create a scala",
+    "context": "Extracted from research response: you prefer using React and Node.js, which are excellent choices for this type of application. From w",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T14:27:06.812Z",
+    "createdAt": "2025-08-06T14:27:06.812Z",
+    "tags": [
+      "source:research",
+      "type:summary",
+      "pattern:user_statement",
+      "confidence:60",
+      "prefer",
+      "using",
+      "react"
+    ],
+    "metadata": {
+      "originatingAssistant": "research",
+      "sessionId": "session-0",
+      "sourceConfidence": 0.6,
+      "extractionPattern": "user_statement",
+      "originalResponse": "I understand you want to build a SaaS project management tool. Your goal is to help small teams collaborate better and track their progress efficiently. You mentioned you prefer using React and Node.js, which are excellent choices for this type of application. From what I understand, you're looking to create a scalable solution that addresses team collaboration challenges in remote work environments.",
+      "timestamp": "2025-08-06T14:27:06.812Z",
+      "assistantId": "asst_research_test",
+      "threadId": "thread-0"
+    }
+  },
+  {
+    "id": "7bc6074d-a0f2-4417-850e-9491dcbed102",
+    "agentId": "research",
+    "userId": "memory-reader-test-1754490426659",
+    "type": "goal",
+    "input": "How can I learn machine learning?",
+    "summary": "transition into machine learning and data science. Your objective is to become proficient in Python",
+    "context": "Extracted from research response: transition into machine learning and data science. Your objective is to become proficient in Python",
+    "relevanceScore": 1.2,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T14:27:06.814Z",
+    "createdAt": "2025-08-06T14:27:06.814Z",
+    "tags": [
+      "source:research",
+      "type:goal",
+      "pattern:explicit_want",
+      "confidence:90",
+      "transition",
+      "into",
+      "machine"
+    ],
+    "metadata": {
+      "originatingAssistant": "research",
+      "sessionId": "session-0",
+      "sourceConfidence": 0.9,
+      "extractionPattern": "explicit_want",
+      "originalResponse": "Based on your background, you want to transition into machine learning and data science. Your objective is to become proficient in Python and TensorFlow within 6 months. You mentioned you prefer hands-on learning over theoretical courses, and you're trying to build practical ML projects for your portfolio.",
+      "timestamp": "2025-08-06T14:27:06.814Z",
+      "assistantId": "asst_research_test",
+      "threadId": "thread-1"
+    }
+  },
+  {
+    "id": "e663d9ee-b662-4b2e-bc8a-a467f5647728",
+    "agentId": "research",
+    "userId": "memory-reader-test-1754490426659",
+    "type": "goal",
+    "input": "How can I learn machine learning?",
+    "summary": "become proficient in Python and TensorFlow within 6 months. You mentioned you prefer hands-on learni",
+    "context": "Extracted from research response: become proficient in Python and TensorFlow within 6 months. You mentioned you prefer hands-on learni",
+    "relevanceScore": 1.2,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T14:27:06.815Z",
+    "createdAt": "2025-08-06T14:27:06.815Z",
+    "tags": [
+      "source:research",
+      "type:goal",
+      "pattern:objective_statement",
+      "confidence:85",
+      "become",
+      "proficient",
+      "python"
+    ],
+    "metadata": {
+      "originatingAssistant": "research",
+      "sessionId": "session-0",
+      "sourceConfidence": 0.85,
+      "extractionPattern": "objective_statement",
+      "originalResponse": "Based on your background, you want to transition into machine learning and data science. Your objective is to become proficient in Python and TensorFlow within 6 months. You mentioned you prefer hands-on learning over theoretical courses, and you're trying to build practical ML projects for your portfolio.",
+      "timestamp": "2025-08-06T14:27:06.815Z",
+      "assistantId": "asst_research_test",
+      "threadId": "thread-1"
+    }
+  },
+  {
+    "id": "03e90a24-d2a1-407b-95b2-7fd982540ae3",
+    "agentId": "research",
+    "userId": "memory-reader-test-1754490426659",
+    "type": "goal",
+    "input": "How can I learn machine learning?",
+    "summary": "build practical ML projects for your portfolio",
+    "context": "Extracted from research response: build practical ML projects for your portfolio",
+    "relevanceScore": 1.2,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T14:27:06.816Z",
+    "createdAt": "2025-08-06T14:27:06.816Z",
+    "tags": [
+      "source:research",
+      "type:goal",
+      "pattern:action_intent",
+      "confidence:80",
+      "build",
+      "practical",
+      "projects"
+    ],
+    "metadata": {
+      "originatingAssistant": "research",
+      "sessionId": "session-0",
+      "sourceConfidence": 0.8,
+      "extractionPattern": "action_intent",
+      "originalResponse": "Based on your background, you want to transition into machine learning and data science. Your objective is to become proficient in Python and TensorFlow within 6 months. You mentioned you prefer hands-on learning over theoretical courses, and you're trying to build practical ML projects for your portfolio.",
+      "timestamp": "2025-08-06T14:27:06.816Z",
+      "assistantId": "asst_research_test",
+      "threadId": "thread-1"
+    }
+  },
+  {
+    "id": "40b84222-f413-4057-886f-ee9490a57c02",
+    "agentId": "research",
+    "userId": "memory-reader-test-1754490426659",
+    "type": "summary",
+    "input": "How can I learn machine learning?",
+    "summary": "you prefer hands-on learning over theoretical courses, and you're trying to build practical ML projects for your portfolio",
+    "context": "Extracted from research response: you prefer hands-on learning over theoretical courses, and you're trying to build practical ML proje",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T14:27:06.817Z",
+    "createdAt": "2025-08-06T14:27:06.817Z",
+    "tags": [
+      "source:research",
+      "type:summary",
+      "pattern:user_statement",
+      "confidence:60",
+      "prefer",
+      "hands-on",
+      "learning"
+    ],
+    "metadata": {
+      "originatingAssistant": "research",
+      "sessionId": "session-0",
+      "sourceConfidence": 0.6,
+      "extractionPattern": "user_statement",
+      "originalResponse": "Based on your background, you want to transition into machine learning and data science. Your objective is to become proficient in Python and TensorFlow within 6 months. You mentioned you prefer hands-on learning over theoretical courses, and you're trying to build practical ML projects for your portfolio.",
+      "timestamp": "2025-08-06T14:27:06.817Z",
+      "assistantId": "asst_research_test",
+      "threadId": "thread-1"
+    }
   }
 ]

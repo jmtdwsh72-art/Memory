@@ -1,0 +1,130 @@
+[
+  {
+    "id": "dab53dce-de52-401b-8b88-7367ca775dd7",
+    "agentId": "creative",
+    "userId": "memory-reader-test-1754490426659",
+    "type": "goal",
+    "input": "Help me write better documentation",
+    "summary": "make your code more accessible to contributors and users. You mentioned that you prefer markdown-bas",
+    "context": "Extracted from creative response: make your code more accessible to contributors and users. You mentioned that you prefer markdown-bas",
+    "relevanceScore": 1.2,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T14:27:06.819Z",
+    "createdAt": "2025-08-06T14:27:06.819Z",
+    "tags": [
+      "source:creative",
+      "type:goal",
+      "pattern:explicit_goal",
+      "confidence:95",
+      "make",
+      "your",
+      "code"
+    ],
+    "metadata": {
+      "originatingAssistant": "creative",
+      "sessionId": "session-1",
+      "sourceConfidence": 0.95,
+      "extractionPattern": "explicit_goal",
+      "originalResponse": "You said you need to improve documentation for your open-source projects. Your goal is to make your code more accessible to contributors and users. You mentioned that you prefer markdown-based documentation and want to automate the process where possible.",
+      "timestamp": "2025-08-06T14:27:06.818Z",
+      "assistantId": "asst_creative_test",
+      "threadId": "thread-2"
+    }
+  },
+  {
+    "id": "b1a2d07f-6d12-4ac2-b597-88d4cb205913",
+    "agentId": "creative",
+    "userId": "memory-reader-test-1754490426659",
+    "type": "goal",
+    "input": "Help me write better documentation",
+    "summary": "improve documentation for your open-source projects. Your goal is to make your code more accessible",
+    "context": "Extracted from creative response: improve documentation for your open-source projects. Your goal is to make your code more accessible",
+    "relevanceScore": 1.2,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T14:27:06.820Z",
+    "createdAt": "2025-08-06T14:27:06.820Z",
+    "tags": [
+      "source:creative",
+      "type:goal",
+      "pattern:requirement",
+      "confidence:70",
+      "improve",
+      "documentation",
+      "your"
+    ],
+    "metadata": {
+      "originatingAssistant": "creative",
+      "sessionId": "session-1",
+      "sourceConfidence": 0.7,
+      "extractionPattern": "requirement",
+      "originalResponse": "You said you need to improve documentation for your open-source projects. Your goal is to make your code more accessible to contributors and users. You mentioned that you prefer markdown-based documentation and want to automate the process where possible.",
+      "timestamp": "2025-08-06T14:27:06.820Z",
+      "assistantId": "asst_creative_test",
+      "threadId": "thread-2"
+    }
+  },
+  {
+    "id": "737e3d0d-64e5-4bcb-b3dd-fc9c8e783b2e",
+    "agentId": "creative",
+    "userId": "memory-reader-test-1754490426659",
+    "type": "summary",
+    "input": "Help me write better documentation",
+    "summary": "markdown-based documentation and want to automate the process where possible",
+    "context": "Extracted from creative response: markdown-based documentation and want to automate the process where possible",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T14:27:06.821Z",
+    "createdAt": "2025-08-06T14:27:06.821Z",
+    "tags": [
+      "source:creative",
+      "type:summary",
+      "pattern:preference",
+      "confidence:70",
+      "markdown-based",
+      "documentation",
+      "automate"
+    ],
+    "metadata": {
+      "originatingAssistant": "creative",
+      "sessionId": "session-1",
+      "sourceConfidence": 0.7,
+      "extractionPattern": "preference",
+      "originalResponse": "You said you need to improve documentation for your open-source projects. Your goal is to make your code more accessible to contributors and users. You mentioned that you prefer markdown-based documentation and want to automate the process where possible.",
+      "timestamp": "2025-08-06T14:27:06.821Z",
+      "assistantId": "asst_creative_test",
+      "threadId": "thread-2"
+    }
+  },
+  {
+    "id": "9e8835e2-06a6-4c12-98c3-0c72095ba33f",
+    "agentId": "creative",
+    "userId": "memory-reader-test-1754490426659",
+    "type": "summary",
+    "input": "Help me write better documentation",
+    "summary": "you need to improve documentation for your open-source projects. Your goal is to make your code more accessible to contributors and users. You mention",
+    "context": "Extracted from creative response: you need to improve documentation for your open-source projects. Your goal is to make your code more",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T14:27:06.822Z",
+    "createdAt": "2025-08-06T14:27:06.822Z",
+    "tags": [
+      "source:creative",
+      "type:summary",
+      "pattern:user_statement",
+      "confidence:60",
+      "improve",
+      "documentation",
+      "your"
+    ],
+    "metadata": {
+      "originatingAssistant": "creative",
+      "sessionId": "session-1",
+      "sourceConfidence": 0.6,
+      "extractionPattern": "user_statement",
+      "originalResponse": "You said you need to improve documentation for your open-source projects. Your goal is to make your code more accessible to contributors and users. You mentioned that you prefer markdown-based documentation and want to automate the process where possible.",
+      "timestamp": "2025-08-06T14:27:06.822Z",
+      "assistantId": "asst_creative_test",
+      "threadId": "thread-2"
+    }
+  }
+]

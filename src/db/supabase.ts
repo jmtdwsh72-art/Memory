@@ -45,6 +45,7 @@ export interface Database {
           relevance: number;
           created_at: string;
           tags: string[] | null;
+          metadata: Record<string, any> | null;
         };
         Insert: {
           id?: string;
@@ -58,6 +59,7 @@ export interface Database {
           relevance?: number;
           created_at?: string;
           tags?: string[] | null;
+          metadata?: Record<string, any> | null;
         };
         Update: {
           id?: string;
@@ -71,6 +73,7 @@ export interface Database {
           relevance?: number;
           created_at?: string;
           tags?: string[] | null;
+          metadata?: Record<string, any> | null;
         };
       };
       user: {

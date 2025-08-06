@@ -17,7 +17,7 @@ export class MemoryEngine {
     this.patterns = new Map();
     this.memoryMode = (process.env.MEMORY_MODE as 'supabase' | 'file' | 'hybrid') || 'hybrid';
     this.loadPatterns();
-    this.testSupabaseConnection();
+    // Don't test connection in constructor - will be tested on first use
   }
 
   private async testSupabaseConnection(): Promise<void> {
@@ -52,7 +52,8 @@ export class MemoryEngine {
     userId?: string,
     context?: string,
     type: 'log' | 'summary' | 'pattern' | 'correction' | 'goal' | 'goal_progress' | 'session_summary' | 'session_decision' = 'summary',
-    tags?: string[]
+    tags?: string[],
+    metadata?: Record<string, any>
   ): Promise<MemoryEntry> {
     const summary = this.generateSummary(input, output);
     const autoTags = this.extractTags(input, output);
@@ -70,12 +71,25 @@ export class MemoryEngine {
       frequency: 1,
       lastAccessed: new Date(),
       createdAt: new Date(),
-      tags: finalTags
+      tags: finalTags,
+      metadata
     };
+
+    // Test Supabase connection if needed
+    if ((this.memoryMode === 'supabase' || this.memoryMode === 'hybrid') && !this.supabaseAvailable) {
+      await this.testSupabaseConnection();
+    }
 
     // Determine storage method based on mode and availability
     const shouldUseSupabase = (this.memoryMode === 'supabase' && this.supabaseAvailable) || 
                               (this.memoryMode === 'hybrid' && this.supabaseAvailable);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Memory Engine Storage Decision:');
+      console.log(`   Memory Mode: ${this.memoryMode}`);
+      console.log(`   Supabase Available: ${this.supabaseAvailable}`);
+      console.log(`   Should Use Supabase: ${shouldUseSupabase}`);
+    }
                               
     if (shouldUseSupabase) {
       try {
@@ -89,11 +103,16 @@ export class MemoryEngine {
           summary: memoryEntry.summary,
           relevance: memoryEntry.relevanceScore,
           tags: memoryEntry.tags,
-          // Include goal-specific fields if present
-          ...(memoryEntry.goalId && { goal_id: memoryEntry.goalId }),
-          ...(memoryEntry.goalSummary && { goal_summary: memoryEntry.goalSummary }),
-          ...(memoryEntry.goalStatus && { goal_status: memoryEntry.goalStatus })
+          metadata: memoryEntry.metadata
+          // Removed goal-specific fields as they don't exist in current schema
+          // ...(memoryEntry.goalId && { goal_id: memoryEntry.goalId }),
+          // ...(memoryEntry.goalSummary && { goal_summary: memoryEntry.goalSummary }),
+          // ...(memoryEntry.goalStatus && { goal_status: memoryEntry.goalStatus })
         };
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔍 Memory Engine: Inserting data to Supabase:', JSON.stringify(insertData, null, 2));
+        }
 
         const { data: responseData, error } = await supabase
           .from('memory')
@@ -209,6 +228,7 @@ export class MemoryEngine {
           lastAccessed: new Date(row.created_at), // Use created_at as last accessed
           createdAt: new Date(row.created_at),
           tags: row.tags,
+          metadata: row.metadata,
           // Include goal-specific fields if present
           ...(row.goal_id && { goalId: row.goal_id }),
           ...(row.goal_summary && { goalSummary: row.goal_summary }),
@@ -368,6 +388,7 @@ export class MemoryEngine {
         lastAccessed: new Date(row.last_accessed),
         createdAt: new Date(row.created_at),
         tags: row.tags,
+        metadata: row.metadata,
         // Include goal-specific fields if present
         ...(row.goal_id && { goalId: row.goal_id }),
         ...(row.goal_summary && { goalSummary: row.goal_summary }),
@@ -662,6 +683,7 @@ export class MemoryEngine {
         last_accessed: entry.lastAccessed.toISOString(),
         created_at: entry.createdAt.toISOString(),
         tags: entry.tags,
+        metadata: entry.metadata,
         // Include goal-specific fields if present
         ...(entry.goalId && { goal_id: entry.goalId }),
         ...(entry.goalSummary && { goal_summary: entry.goalSummary }),

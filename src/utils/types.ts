@@ -46,6 +46,7 @@ export interface MemoryEntry {
   lastAccessed: Date;
   createdAt: Date;
   tags?: string[];
+  metadata?: Record<string, any>;
   // Goal progress specific fields
   goalId?: string;
   goalSummary?: string;

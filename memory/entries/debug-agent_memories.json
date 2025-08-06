@@ -1,0 +1,77 @@
+[
+  {
+    "id": "7b7c1eb9-ebf6-43bc-b408-02bf2d902a6f",
+    "agentId": "debug-agent",
+    "userId": "debug-engine-1754490981158",
+    "type": "goal",
+    "input": "I want to debug the memory system",
+    "summary": "User wants to debug and understand how the memory system works",
+    "context": "Debug context for memory system testing",
+    "relevanceScore": 1.2,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T14:36:21.159Z",
+    "createdAt": "2025-08-06T14:36:21.159Z",
+    "tags": [
+      "debug",
+      "memory",
+      "system"
+    ],
+    "metadata": {
+      "sourceConfidence": 0.95,
+      "extractionPattern": "debug_test",
+      "sessionId": "debug-session",
+      "assistantId": "debug-asst",
+      "threadId": "debug-thread"
+    }
+  },
+  {
+    "id": "e94347c7-5906-467e-a649-f9ed8ec92851",
+    "agentId": "debug-agent",
+    "userId": "debug-engine-1754491027283",
+    "type": "goal",
+    "input": "I want to debug the memory system",
+    "summary": "User wants to debug and understand how the memory system works",
+    "context": "Debug context for memory system testing",
+    "relevanceScore": 1.2,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T14:37:07.283Z",
+    "createdAt": "2025-08-06T14:37:07.283Z",
+    "tags": [
+      "debug",
+      "memory",
+      "system"
+    ],
+    "metadata": {
+      "sourceConfidence": 0.95,
+      "extractionPattern": "debug_test",
+      "sessionId": "debug-session",
+      "assistantId": "debug-asst",
+      "threadId": "debug-thread"
+    }
+  },
+  {
+    "id": "62bdc61e-eebc-4d1a-94c5-7e53f17a4d27",
+    "agentId": "debug-agent",
+    "userId": "debug-engine-1754491065988",
+    "type": "goal",
+    "input": "I want to debug the memory system",
+    "summary": "User wants to debug and understand how the memory system works",
+    "context": "Debug context for memory system testing",
+    "relevanceScore": 1.2,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T14:37:45.990Z",
+    "createdAt": "2025-08-06T14:37:45.990Z",
+    "tags": [
+      "debug",
+      "memory",
+      "system"
+    ],
+    "metadata": {
+      "sourceConfidence": 0.95,
+      "extractionPattern": "debug_test",
+      "sessionId": "debug-session",
+      "assistantId": "debug-asst",
+      "threadId": "debug-thread"
+    }
+  }
+]

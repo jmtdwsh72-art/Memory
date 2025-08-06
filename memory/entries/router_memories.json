@@ -626,5 +626,95 @@
       "memory",
       "systems"
     ]
+  },
+  {
+    "id": "8d6225dd-e609-48a5-bfa4-23acfce56be7",
+    "agentId": "router",
+    "userId": "test-user-bakery",
+    "type": "pattern",
+    "input": "Help me create a website for my bakery business",
+    "summary": "Clarification requested: missing_subject - Agent: router",
+    "context": "Clarification requested: missing_subject - Agent: router",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T13:18:08.435Z",
+    "createdAt": "2025-08-06T13:18:08.435Z",
+    "tags": [
+      "clarification_requested",
+      "missing_subject",
+      "router"
+    ]
+  },
+  {
+    "id": "3806b794-bf9d-4ec2-90a9-545160eea8aa",
+    "agentId": "router",
+    "userId": "test-123",
+    "type": "pattern",
+    "input": "Help me create a website for my bakery business",
+    "summary": "Clarification requested: missing_subject - Agent: router",
+    "context": "Clarification requested: missing_subject - Agent: router",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T13:18:18.962Z",
+    "createdAt": "2025-08-06T13:18:18.962Z",
+    "tags": [
+      "clarification_requested",
+      "missing_subject",
+      "router"
+    ]
+  },
+  {
+    "id": "20d3a3d4-61be-49b5-9e4b-fbfc135558bd",
+    "agentId": "router",
+    "userId": "test-123",
+    "type": "pattern",
+    "input": "I need help building a website",
+    "summary": "Clarification requested: missing_subject - Agent: router",
+    "context": "Clarification requested: missing_subject - Agent: router",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T13:18:27.317Z",
+    "createdAt": "2025-08-06T13:18:27.317Z",
+    "tags": [
+      "clarification_requested",
+      "missing_subject",
+      "router"
+    ]
+  },
+  {
+    "id": "aa7242d8-b7a6-4f11-8b24-7e4eede2c9a6",
+    "agentId": "router",
+    "userId": "test-creative-user",
+    "type": "pattern",
+    "input": "Write a creative story about a dragon",
+    "summary": "Clarification requested: missing_subject - Agent: router",
+    "context": "Clarification requested: missing_subject - Agent: router",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T13:18:50.209Z",
+    "createdAt": "2025-08-06T13:18:50.209Z",
+    "tags": [
+      "clarification_requested",
+      "missing_subject",
+      "router"
+    ]
+  },
+  {
+    "id": "d3121efb-d3cb-4bb0-8575-c12e470dec8a",
+    "agentId": "router",
+    "userId": "test-123",
+    "type": "pattern",
+    "input": "Write a creative story about a dragon",
+    "summary": "Clarification requested: missing_subject - Agent: router",
+    "context": "Clarification requested: missing_subject - Agent: router",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T13:19:10.568Z",
+    "createdAt": "2025-08-06T13:19:10.568Z",
+    "tags": [
+      "clarification_requested",
+      "missing_subject",
+      "router"
+    ]
   }
 ]

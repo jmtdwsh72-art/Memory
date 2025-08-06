@@ -158,10 +158,13 @@ export function detectClarificationNeed(
       }
     }
     
-    // Check keywords
-    const keywordMatches = pattern.keywords.filter(keyword => 
-      lowerInput.includes(keyword.toLowerCase())
-    );
+    // Check keywords (with word boundary checking)
+    const keywordMatches = pattern.keywords.filter(keyword => {
+      const keywordLower = keyword.toLowerCase();
+      // Check for whole word match, not substring
+      const wordRegex = new RegExp(`\\b${keywordLower}\\b`, 'i');
+      return wordRegex.test(lowerInput);
+    });
     
     if (keywordMatches.length > 0) {
       patternScore += (keywordMatches.length * 0.3) * pattern.weight;
@@ -208,7 +211,7 @@ export function detectClarificationNeed(
   }
   
   // Final decision based on total score
-  const needsClarification = clarificationScore >= 0.5;
+  const needsClarification = clarificationScore >= 0.8;
   
   if (needsClarification && !bestMatch.reason) {
     bestMatch.reason = 'vague_input';

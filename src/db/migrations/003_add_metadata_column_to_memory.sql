@@ -1,0 +1,2 @@
+ALTER TABLE memory
+ADD COLUMN metadata JSONB;

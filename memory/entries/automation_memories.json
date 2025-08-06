@@ -58,5 +58,101 @@
       "let",
       "automate"
     ]
+  },
+  {
+    "id": "2a920310-c71d-4a6c-9e77-67128c95d0eb",
+    "agentId": "automation",
+    "userId": "memory-reader-test-1754490426659",
+    "type": "goal",
+    "input": "I need automation for my workflows",
+    "summary": "set up CI/CD pipelines and reduce manual deployment work. You prefer GitHub Actions and Docker for y",
+    "context": "Extracted from automation response: set up CI/CD pipelines and reduce manual deployment work. You prefer GitHub Actions and Docker for y",
+    "relevanceScore": 1.2,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T14:27:06.823Z",
+    "createdAt": "2025-08-06T14:27:06.823Z",
+    "tags": [
+      "source:automation",
+      "type:goal",
+      "pattern:objective_statement",
+      "confidence:85",
+      "ci/cd",
+      "pipelines",
+      "reduce"
+    ],
+    "metadata": {
+      "originatingAssistant": "automation",
+      "sessionId": "session-1",
+      "sourceConfidence": 0.85,
+      "extractionPattern": "objective_statement",
+      "originalResponse": "From what you've told me, you're working on automating repetitive development tasks. Your objective is to set up CI/CD pipelines and reduce manual deployment work. You prefer GitHub Actions and Docker for your automation stack.",
+      "timestamp": "2025-08-06T14:27:06.823Z",
+      "assistantId": "asst_automation_test",
+      "threadId": "thread-3"
+    }
+  },
+  {
+    "id": "6e1654eb-18e5-40cb-8f26-db2548ee7e46",
+    "agentId": "automation",
+    "userId": "memory-reader-test-1754490426659",
+    "type": "goal",
+    "input": "I need automation for my workflows",
+    "summary": "automating repetitive development tasks. Your objective is to set up CI/CD pipelines and reduce manu",
+    "context": "Extracted from automation response: automating repetitive development tasks. Your objective is to set up CI/CD pipelines and reduce manu",
+    "relevanceScore": 1.2,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T14:27:06.849Z",
+    "createdAt": "2025-08-06T14:27:06.849Z",
+    "tags": [
+      "source:automation",
+      "type:goal",
+      "pattern:action_intent",
+      "confidence:80",
+      "automating",
+      "repetitive",
+      "development"
+    ],
+    "metadata": {
+      "originatingAssistant": "automation",
+      "sessionId": "session-1",
+      "sourceConfidence": 0.8,
+      "extractionPattern": "action_intent",
+      "originalResponse": "From what you've told me, you're working on automating repetitive development tasks. Your objective is to set up CI/CD pipelines and reduce manual deployment work. You prefer GitHub Actions and Docker for your automation stack.",
+      "timestamp": "2025-08-06T14:27:06.849Z",
+      "assistantId": "asst_automation_test",
+      "threadId": "thread-3"
+    }
+  },
+  {
+    "id": "d96496e1-4f1a-44f9-87bf-b216310978ab",
+    "agentId": "automation",
+    "userId": "memory-reader-test-1754490426659",
+    "type": "summary",
+    "input": "I need automation for my workflows",
+    "summary": "GitHub Actions and Docker for your automation stack",
+    "context": "Extracted from automation response: GitHub Actions and Docker for your automation stack",
+    "relevanceScore": 1,
+    "frequency": 1,
+    "lastAccessed": "2025-08-06T14:27:06.850Z",
+    "createdAt": "2025-08-06T14:27:06.850Z",
+    "tags": [
+      "source:automation",
+      "type:summary",
+      "pattern:preference",
+      "confidence:70",
+      "github",
+      "actions",
+      "docker"
+    ],
+    "metadata": {
+      "originatingAssistant": "automation",
+      "sessionId": "session-1",
+      "sourceConfidence": 0.7,
+      "extractionPattern": "preference",
+      "originalResponse": "From what you've told me, you're working on automating repetitive development tasks. Your objective is to set up CI/CD pipelines and reduce manual deployment work. You prefer GitHub Actions and Docker for your automation stack.",
+      "timestamp": "2025-08-06T14:27:06.850Z",
+      "assistantId": "asst_automation_test",
+      "threadId": "thread-3"
+    }
   }
 ]
